@@ -301,12 +301,12 @@ export default function LoginPage() {
           {/* Kembali ke Home */}
           <div className="mb-6">
             <button
-              onClick={() => navigate("/")}
+              onClick={() => navigate(-1)}
               className="flex items-center gap-1.5 text-sm font-medium hover:underline transition-colors"
               style={{ color: "hsl(347 45% 38%)" }}
             >
               <ArrowLeft size={15} />
-              Kembali ke Home
+              Kembali
             </button>
           </div>
 

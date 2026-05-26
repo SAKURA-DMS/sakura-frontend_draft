@@ -9,7 +9,7 @@ import DocumentDetailModal from "@/components/modals/DocumentDetailModal";
 import UploadForm from "@/components/upload/UploadForm";
 import { useApp } from "@/contexts/AppContext";
 import { useSettings } from "@/contexts/SettingsContext";
-import { buildFolderTree, docMatchesFolder, docMatchesFolderStrict, KATEGORI_OPTIONS, SIDEBAR_FOLDERS } from "@/data/mockData";
+import { buildFolderTree, docMatchesFolder, docMatchesFolderStrict, KATEGORI_OPTIONS, SIDEBAR_FOLDERS, CATEGORIES, DOCUMENT_TYPES, TAHUN_AJARAN_OPTIONS } from "@/data/mockData";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -24,7 +24,6 @@ const STATUS_SECTIONS = [
 { key: "Disetujui", label: "Disetujui", color: "text-sakura-success", bgColor: "bg-sakura-success/10 border-sakura-success/20", badgeColor: "bg-sakura-success/20 text-sakura-success", opacity: false },
 { key: "Diarsipkan", label: "Diarsipkan", color: "text-muted-foreground", bgColor: "bg-muted/50 border-border", badgeColor: "bg-muted text-muted-foreground", opacity: false },
 { key: "Ditolak", label: "Ditolak", color: "text-destructive", bgColor: "bg-destructive/5 border-destructive/20", badgeColor: "bg-destructive/20 text-destructive", opacity: false }];
-
 
 export default function ArchivePage() {
   const { documents, toggleFavorite, currentUser, customFolders, createFolder, editFolder, deleteFolder, editDocument, moveDocument, deleteDocument, trashedDocuments, restoreDocument, permanentlyDeleteDocument } = useApp();
@@ -44,7 +43,6 @@ export default function ArchivePage() {
     }
     const folder = searchParams.get("folder");
     if (folder) {
-      // Find the matching folder path from SIDEBAR_FOLDERS
       for (const item of SIDEBAR_FOLDERS) {
         if (item.children) {
           const match = item.children.find((c) => c.folder === folder);
@@ -56,6 +54,7 @@ export default function ArchivePage() {
       }
     }
   }, [searchParams]);
+
   const [detailDoc, setDetailDoc] = useState(null);
   const [selectedFolder, setSelectedFolder] = useState(null);
   const [expandedFolders, setExpandedFolders] = useState(new Set());
@@ -93,7 +92,6 @@ export default function ArchivePage() {
 
   const isAdmin = currentUser.role === "Operator/TU";
 
-  // Filter documents based on access restriction
   const accessibleDocuments = useMemo(() => {
     return documents.filter((doc) => {
       if (currentUser.role === "Operator/TU") return true;
@@ -109,8 +107,6 @@ export default function ArchivePage() {
 
   const folderTree = useMemo(() => buildFolderTree(documents), [documents]);
 
-  // Do not auto-expand folders on load. Expand only when user requests (e.g. press "Semua Dokumen").
-
   const toggleExpand = (path) => {
     setExpandedFolders((prev) => {
       const next = new Set(prev);
@@ -119,9 +115,8 @@ export default function ArchivePage() {
     });
   };
 
-  // Get subfolders of the currently selected folder for grid display (moved before filtered)
   const currentSubfolders = useMemo(() => {
-    if (!selectedFolder) return folderTree; // show root folders
+    if (!selectedFolder) return folderTree; 
     const findNode = (nodes, targetPath) => {
       for (const node of nodes) {
         if (node.path === targetPath) return node;
@@ -180,7 +175,6 @@ export default function ArchivePage() {
     return documents.filter((d) => docMatchesFolder(d, folderPath)).length;
   };
 
-  // Flatten folder tree for move modal
   const flattenTree = (nodes, depth = 0) => {
     const result = [];
     nodes.forEach((node) => {
@@ -195,7 +189,7 @@ export default function ArchivePage() {
   const handleCreateFolder = () => {
     if (!newFolderName.trim()) return;
     createFolder(newFolderName.trim(), createFolderParent, newFolderDesc.trim());
-    toast({ title: "Berhasil", description: `Folder '${newFolderName.trim()}' berhasil dibuat` });
+    toast({ title: "✅ Berhasil", description: `Folder '${newFolderName.trim()}' berhasil dibuat`, className: "bg-green-600 text-white border-none shadow-2xl font-semibold" });
     setNewFolderName("");
     setNewFolderDesc("");
     setShowCreateFolderModal(false);
@@ -211,9 +205,8 @@ export default function ArchivePage() {
     if (!editName.trim()) return;
     if (editTarget.type === "folder") {
       editFolder(editTarget.data.id, { name: editName.trim(), description: editDesc.trim() });
-      toast({ title: "Berhasil", description: `Folder '${editName.trim()}' berhasil diperbarui` });
+      toast({ title: "✅ Berhasil", description: `Folder '${editName.trim()}' berhasil diperbarui`, className: "bg-green-600 text-white border-none shadow-2xl font-semibold" });
     } else {
-      // update document metadata
       const category = CATEGORIES.find((c) => c.category_id === editCategoryId)?.category_name || editTarget.data.kategori;
       const typeName = DOCUMENT_TYPES.find((t) => t.type_id === editTypeId)?.type_name || editTarget.data.jenisDokumen;
       editDocument(editTarget.data.id, {
@@ -224,7 +217,7 @@ export default function ArchivePage() {
         jenisDokumen: typeName,
         tahunAjaran: editYear || editTarget.data.tahunAjaran,
       });
-      toast({ title: "Berhasil", description: `Dokumen '${editName.trim()}' berhasil diperbarui` });
+      toast({ title: "✅ Berhasil", description: `Dokumen '${editName.trim()}' berhasil diperbarui`, className: "bg-green-600 text-white border-none shadow-2xl font-semibold" });
     }
     setShowEditModal(false);
     setEditTarget(null);
@@ -233,11 +226,11 @@ export default function ArchivePage() {
   const handleDelete = () => {
     if (deleteTarget.type === "folder") {
       deleteFolder(deleteTarget.id);
-      toast({ title: "Berhasil", description: `Folder '${deleteTarget.name}' berhasil dihapus` });
+      toast({ variant: "destructive", title: "🗑️ Berhasil Dihapus", description: `Folder '${deleteTarget.name}' berhasil dipindahkan ke Sampah`, className: "shadow-2xl border-2 border-red-800 font-bold bg-destructive text-destructive-foreground" });
     } else {
       deleteDocument(deleteTarget.id);
       if (previewDoc?.id === deleteTarget.id) setPreviewDoc(null);
-      toast({ title: "Berhasil", description: `Dokumen '${deleteTarget.name}' berhasil dihapus` });
+      toast({ variant: "destructive", title: "🗑️ Berhasil Dihapus", description: `Dokumen '${deleteTarget.name}' berhasil dipindahkan ke Sampah`, className: "shadow-2xl border-2 border-red-800 font-bold bg-destructive text-destructive-foreground" });
     }
     setShowDeleteConfirm(false);
     setDeleteTarget(null);
@@ -246,7 +239,7 @@ export default function ArchivePage() {
   const handleMove = () => {
     if (!moveDestination || !moveTarget) return;
     moveDocument(moveTarget.id, moveDestination);
-    toast({ title: "Berhasil", description: `Dokumen '${moveTarget.judul}' berhasil dipindahkan` });
+    toast({ title: "✅ Berhasil", description: `Dokumen '${moveTarget.judul}' berhasil dipindahkan`, className: "bg-green-600 text-white border-none shadow-2xl font-semibold" });
     setShowMoveModal(false);
     setMoveTarget(null);
     setMoveDestination("");
@@ -303,64 +296,64 @@ export default function ArchivePage() {
     const docCount = countDocsInFolder(folder.path);
 
     return (
-      <div key={folder.path}>
-        <div className="group flex items-center" style={{ paddingLeft: `${8 + depth * 16}px` }}>
-          <TooltipProvider delayDuration={400}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => {
-                    if (hasChildren) toggleExpand(folder.path);
-                    setSelectedFolder(folder.path);
-                    setShowFavorites(false);
-                    setPreviewDoc(null);
-                  }}
-                  className={`flex-1 flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm transition-colors min-w-0 ${
-                  isSelected ? "bg-primary/10 text-primary font-semibold" : "text-foreground hover:bg-muted"}`
-                  }>
-                  
-                  {/* Expand/collapse indicator */}
-                  {hasChildren ?
-                  <span className="shrink-0 w-4 h-4 flex items-center justify-center text-muted-foreground">
-                      {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                    </span> :
-
-                  <span className="w-4 shrink-0" />
-                  }
-                  {isExpanded && hasChildren ?
-                  <FolderOpen size={15} className="text-sakura-warning shrink-0" /> :
-
-                  <Folder size={15} className={`shrink-0 ${isSelected ? "text-primary" : hasChildren ? "text-muted-foreground" : "text-sakura-warning"}`} />
-                  }
-                  <span className="truncate text-left">{folder.name}</span>
-                  {docCount > 0 &&
-                  <span className="ml-auto text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full shrink-0">{docCount}</span>
-                  }
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="max-w-[240px]">
-                <p className="font-semibold text-xs">{folder.name}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          {isAdmin &&
+      <div key={folder.path} className="w-full">
+        <div className="flex items-center w-full" style={{ paddingLeft: `${depth * 16}px` }}>
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setContextMenu({
-                x: e.clientX, y: e.clientY, type: "folder",
-                data: folder, parentPath: folder.path
-              });
+            onClick={() => {
+              if (hasChildren) toggleExpand(folder.path);
+              setSelectedFolder(folder.path);
+              setShowFavorites(false);
+              setPreviewDoc(null);
             }}
-            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-muted transition-opacity shrink-0">
-            
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 border border-transparent 
+            ${isSelected 
+                ? "bg-primary/10 text-primary !border-primary/20 shadow-sm" 
+                : "text-foreground hover:bg-muted hover:border-border"
+            }`}
+          >
+            {/* Ikon Folder */}
+            <div className={`shrink-0 ${isSelected ? "text-primary" : "text-amber-500"}`}>
+               {isExpanded ? <FolderOpen size={20} /> : <Folder size={20} />}
+            </div>
+
+            <span className="truncate flex-1 text-left">{folder.name}</span>
+
+            {/* Indikator Count */}
+            {docCount > 0 && (
+              <span className="text-[10px] font-bold bg-muted px-2 py-0.5 rounded-full text-muted-foreground shrink-0">
+                {docCount}
+              </span>
+            )}
+
+            {/* Chevron */}
+            {hasChildren && (
+              <ChevronDown 
+                size={14} 
+                className={`transition-transform duration-300 ${isExpanded ? "rotate-0 text-primary" : "-rotate-90 text-muted-foreground"}`} 
+              />
+            )}
+          </button>
+          
+          {isAdmin && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setContextMenu({ x: e.clientX, y: e.clientY, type: "folder", data: folder, parentPath: folder.path });
+              }}
+              className="p-2 ml-1 rounded-lg hover:bg-muted transition-colors shrink-0"
+            >
               <MoreVertical size={14} className="text-muted-foreground" />
             </button>
-          }
+          )}
         </div>
-        {isExpanded && folder.children.map((child) => renderFolder(child, depth + 1))}
-      </div>);
-
+        
+        {isExpanded && (
+          <div className="mt-1">
+            {folder.children.map((child) => renderFolder(child, depth + 1))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   const gridColsClass = folderGridSize === "small" ? "grid-cols-4 sm:grid-cols-5 md:grid-cols-6" :
@@ -403,7 +396,6 @@ export default function ArchivePage() {
     }
     </div>;
 
-
   return (
     <div onClick={handlePageClick} className="flex flex-col h-full">
       <AppHeader title="Arsip Dokumen" subtitle="SMP Negeri 4 Cikarang Barat" />
@@ -423,7 +415,6 @@ export default function ArchivePage() {
                     setSelectedFolder(null);
                     setShowFavorites(false);
                     setPreviewDoc(null);
-                    // If no folders expanded yet, expand top-level folders when user explicitly requests "Semua Dokumen"
                     if (expandedFolders.size === 0 && folderTree.length > 0) {
                       setExpandedFolders(new Set(folderTree.map((f) => f.path)));
                     }
@@ -431,7 +422,6 @@ export default function ArchivePage() {
                   className={`w-full text-left px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   !selectedFolder && !showFavorites ? "bg-primary/10 text-primary font-semibold" : "text-foreground hover:bg-muted"}`
                   }>
-                  
                   📂 Semua Dokumen
                 </button>
                 <button
@@ -439,7 +429,6 @@ export default function ArchivePage() {
                   className={`w-full text-left px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
                   showFavorites ? "bg-primary/10 text-primary font-semibold" : "text-foreground hover:bg-muted"}`
                   }>
-                  
                   <Star size={14} className="text-sakura-warning" /> Favorit
                 </button>
 
@@ -452,13 +441,11 @@ export default function ArchivePage() {
                     setShowCreateFolderModal(true);
                   }}
                   className="w-full flex items-center justify-center gap-2 px-3 py-1.5 mt-1 rounded-md border border-dashed border-primary/40 text-xs font-medium text-primary hover:bg-primary/5 transition-colors">
-                  
                     <FolderPlus size={14} /> Buat Folder
                   </button>
                 }
 
                 <div className="h-px bg-border my-2" />
-
                 {folderTree.map((folder) => renderFolder(folder))}
               </div>
             </div>
@@ -484,7 +471,6 @@ export default function ArchivePage() {
                       <button
                     onClick={() => {setSelectedFolder(part.path);setPreviewDoc(null);}}
                     className={`hover:text-primary transition-colors ${i === breadcrumbParts.length - 1 ? "font-semibold text-foreground" : ""}`}>
-                    
                         {part.label}
                       </button>
                     </span>
@@ -500,14 +486,12 @@ export default function ArchivePage() {
                     <><Star size={20} className="text-sakura-warning fill-sakura-warning" /> Dokumen Favorit</> :
                     selectedFolder ?
                     <><Folder size={20} className="text-sakura-warning" /> {breadcrumbParts ? breadcrumbParts[breadcrumbParts.length - 1]?.label : "Folder"}</> :
-
                     "Semua Dokumen Arsip"
                     }
                   </h2>
                   <p className="text-sm text-muted-foreground mt-0.5">{filtered.length} dokumen ditemukan</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {/* Grid size control */}
                   <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
                     <button onClick={() => setFolderGridSize("small")} title="Kecil" className={`p-1.5 rounded ${folderGridSize === "small" ? "bg-card shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"}`}><Grid3X3 size={14} /></button>
                     <button onClick={() => setFolderGridSize("medium")} title="Sedang" className={`p-1.5 rounded ${folderGridSize === "medium" ? "bg-card shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"}`}><Grid2X2 size={14} /></button>
@@ -542,7 +526,6 @@ export default function ArchivePage() {
                       setPreviewDoc(null);
                     }}
                     className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-border bg-card hover:bg-muted hover:border-primary/30 transition-colors group">
-                    
                         <Folder size={folderGridSize === "small" ? 24 : folderGridSize === "large" ? 40 : 32} className="text-sakura-warning group-hover:text-primary transition-colors" />
                         <span className={`text-center font-medium text-foreground leading-tight ${folderGridSize === "small" ? "text-[10px]" : "text-xs"}`}>
                           {subfolder.name}
@@ -686,7 +669,6 @@ export default function ArchivePage() {
                       <button
                       onClick={() => setDetailDoc(previewDoc)}
                       className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-                      
                         <FileIcon size={16} /> Lihat Detail Lengkap
                       </button>
                     </div>
@@ -970,8 +952,14 @@ export default function ArchivePage() {
                 <div key={d.id} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background">
                   <div className="flex-1 min-w-0"><div className="font-semibold text-foreground">{d.judul}</div><div className="text-xs text-muted-foreground">{d.nomorDokumen} · {d.kategori}</div></div>
                   <div className="flex gap-2">
-                    <button onClick={() => { restoreDocument(d.id); }} className="px-3 py-1 rounded-lg border border-input text-sm">Restore</button>
-                    <button onClick={() => { permanentlyDeleteDocument(d.id); }} className="px-3 py-1 rounded-lg bg-destructive text-destructive-foreground text-sm">Hapus Permanen</button>
+                    <button onClick={() => { 
+                      restoreDocument(d.id); 
+                      toast({ title: "✅ Berhasil Direstore", description: `Dokumen '${d.judul}' berhasil dikembalikan.`, className: "bg-green-600 text-white border-none shadow-2xl font-semibold" });
+                    }} className="px-3 py-1 rounded-lg border border-input text-sm hover:bg-green-100 hover:text-green-700 transition">Restore</button>
+                    <button onClick={() => { 
+                      permanentlyDeleteDocument(d.id); 
+                      toast({ variant: "destructive", title: "💥 Dihapus Permanen", description: `Dokumen '${d.judul}' telah dihapus secara permanen.`, className: "shadow-2xl border-2 border-red-800 font-bold bg-destructive text-destructive-foreground" });
+                    }} className="px-3 py-1 rounded-lg bg-destructive text-destructive-foreground text-sm hover:bg-red-700 transition">Hapus Permanen</button>
                   </div>
                 </div>
               ))}
@@ -979,6 +967,6 @@ export default function ArchivePage() {
           </div>
         </div>
       )}
-    </div>);
-
+    </div>
+  );
 }

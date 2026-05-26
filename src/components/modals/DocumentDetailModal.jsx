@@ -5,6 +5,7 @@ import { useState } from "react";
 import PdfPreviewOverlay from "./PdfPreviewOverlay";
 import { useApp } from "@/contexts/AppContext";
 import { buildVerifyUrl } from "@/lib/verifyToken";
+import { useToast } from "@/hooks/use-toast"; // IMPORT TOAST
 
 const STATUS_COLORS = { Menunggu: "bg-sakura-warning/20 text-sakura-warning", Disetujui: "bg-sakura-success/20 text-sakura-success", Ditolak: "bg-destructive/20 text-destructive", Diarsipkan: "bg-muted text-muted-foreground" };
 const ROLE_BADGE = { "Operator/TU": "bg-primary/10 text-primary border border-primary/20", "Kepala Sekolah": "bg-sakura-success/10 text-sakura-success border border-sakura-success/20", "Guru": "bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800", "Sistem": "bg-muted text-muted-foreground border border-border" };
@@ -22,12 +23,39 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const { addAuditNote, currentUser, hasPermission, approveDocument, rejectDocument, archiveDocument } = useApp();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const isAdmin = currentUser.role === "Operator/TU";
 
-  const handleAddNote = () => { if (!noteText.trim()) return; addAuditNote(doc.id, noteText.trim()); setNoteText(""); };
-  const handleReject = () => { if (!rejectReason.trim()) return; rejectDocument(doc.id, rejectReason.trim()); setShowRejectForm(false); setRejectReason(""); onClose(); };
-  const handleApprove = () => { approveDocument(doc.id, approveComment.trim() || undefined); setShowApproveForm(false); setApproveComment(""); onClose(); };
-  const handleArchive = () => { archiveDocument(doc.id); setShowArchiveConfirm(false); onClose(); };
+  const handleAddNote = () => { 
+    if (!noteText.trim()) return; 
+    addAuditNote(doc.id, noteText.trim()); 
+    setNoteText(""); 
+    toast({ title: "✅ Catatan Ditambahkan", description: "Catatan berhasil disimpan.", className: "bg-green-600 text-white border-none shadow-2xl font-semibold" });
+  };
+  
+  const handleReject = () => { 
+    if (!rejectReason.trim()) return; 
+    rejectDocument(doc.id, rejectReason.trim()); 
+    setShowRejectForm(false); 
+    setRejectReason(""); 
+    onClose(); 
+    toast({ variant: "destructive", title: "❌ Dokumen Ditolak", description: `Dokumen '${doc.judul}' telah ditolak.`, className: "shadow-2xl border-2 border-red-800 font-bold bg-destructive text-destructive-foreground" });
+  };
+  
+  const handleApprove = () => { 
+    approveDocument(doc.id, approveComment.trim() || undefined); 
+    setShowApproveForm(false); 
+    setApproveComment(""); 
+    onClose(); 
+    toast({ title: "✅ Dokumen Disetujui", description: `Dokumen '${doc.judul}' telah disetujui.`, className: "bg-green-600 text-white border-none shadow-2xl font-semibold" });
+  };
+  
+  const handleArchive = () => { 
+    archiveDocument(doc.id); 
+    setShowArchiveConfirm(false); 
+    onClose(); 
+    toast({ title: "✅ Berhasil Diarsipkan", description: `Dokumen '${doc.judul}' dimasukkan ke arsip.`, className: "bg-green-600 text-white border-none shadow-2xl font-semibold" });
+  };
 
   const canApprove = hasPermission("documents.approve") && doc.status === "Menunggu";
   const canArchive = hasPermission("documents.archive") && doc.status === "Disetujui";
@@ -101,7 +129,6 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
               <div className="space-y-4">{doc.auditTrail.map((entry, i) => (<div key={i} className="flex gap-3 animate-slide-in" style={{ animationDelay: `${i * 50}ms` }}><img src={entry.user.avatar} alt="" className="w-9 h-9 rounded-full object-cover shrink-0 mt-0.5" /><div className="flex-1"><div className="flex items-center gap-2 flex-wrap"><span className="font-semibold text-sm text-foreground">{entry.user.nama}</span><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_BADGE[entry.user.role] || "bg-muted text-muted-foreground border border-border"}`}>{entry.user.role}</span><span className="text-xs text-muted-foreground ml-auto">{format(new Date(entry.time), "yyyy-MM-dd HH:mm")}</span></div><div className="mt-1"><span className={`inline-block text-xs px-2.5 py-1 rounded-full font-medium ${getActionBadgeClass(entry.action)}`}>{entry.action}</span></div></div></div>))}</div>
               {canAddNote && (<div className="mt-4 flex gap-2"><input value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Tambah catatan admin..." className="flex-1 px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring" /><button onClick={handleAddNote} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90">Tambah</button></div>)}
             </div>
-            {/* QR code section removed per spec — preview now shows document info only */}
 
           </div>
         </div>

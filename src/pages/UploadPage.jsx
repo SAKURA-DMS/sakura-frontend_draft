@@ -1,41 +1,50 @@
 import { useState } from "react";
-import Header from "@/components/layout/Header";
-import UploadForm from "@/components/document/UploadForm";
-import { motion } from "framer-motion";
+import AppHeader from "@/components/layout/AppHeader";
+import UploadForm from "@/components/upload/UploadForm"; // PASTIKAN PATH INI BENAR
 import { useApp } from "@/contexts/AppContext";
-import { Info, AlertCircle } from "lucide-react";
-import { DOCUMENT_TYPES } from "@/data/mockData";
+import { Info } from "lucide-react";
 
 export default function UploadPage() {
   const { currentUser } = useApp();
+
+  // Pengaman jika data user lambat dimuat, cegah layar blank/error null
+  if (!currentUser) {
+    return (
+      <div className="flex h-screen items-center justify-center text-muted-foreground">
+        Memuat halaman upload...
+      </div>
+    );
+  }
+
   const role = currentUser.role;
   const isOperator = role === "Operator/TU";
   const isGuru = role === "Guru";
 
-  // Modules removed: show upload form directly to users who can upload.
-  const guruUploadOwn = isGuru; // allow teacher uploads but additional restrictions handled later
-
   return (
-    <>
-      <Header title="Upload Dokumen" subtitle="Unggah dokumen untuk diproses dan diarsipkan" />
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="p-6 lg:p-8 space-y-6">
+    <div className="flex flex-col h-full bg-background">
+      <AppHeader title="Upload Dokumen" subtitle="Unggah dokumen untuk diproses dan diarsipkan" />
+      
+      <div className="flex-1 overflow-y-auto p-6 lg:p-8 space-y-6">
         {!isOperator && !isGuru && (
           <div className="flex items-start gap-3 p-3 sm:p-4 rounded-lg bg-primary/[0.06] border-l-4 border-primary">
             <Info size={18} className="text-primary shrink-0 mt-0.5" />
-            <p className="text-sm text-primary font-medium">Hanya Operator TU yang dapat mengunggah dokumen ke sistem SAKURA</p>
+            <p className="text-sm text-primary font-medium">
+              Hanya Operator TU dan Guru yang diizinkan untuk mengunggah dokumen ke sistem SAKURA.
+            </p>
           </div>
         )}
 
-        {/* Module selector removed — modules simplified. */}
         {(isOperator || isGuru) ? (
-          <UploadForm
-            selectedModule={null}
-            guruUploadOwn={guruUploadOwn}
-            lockedNip={guruUploadOwn ? currentUser.nip : null}
-            lockedTypeId={null}
-          />
+          <div className="bg-card border border-border p-6 rounded-xl shadow-sm">
+            <UploadForm
+              selectedModule={null}
+              guruUploadOwn={isGuru}
+              lockedNip={isGuru ? currentUser.nip : null}
+              lockedTypeId={null}
+            />
+          </div>
         ) : null}
-      </motion.div>
-    </>
+      </div>
+    </div>
   );
 }

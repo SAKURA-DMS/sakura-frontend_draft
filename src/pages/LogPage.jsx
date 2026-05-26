@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Search, RotateCcw, FileText, Clock } from "lucide-react";
+import { Search, RotateCcw, FileText, Clock, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 import AppHeader from "@/components/layout/AppHeader";
 import { useApp } from "@/contexts/AppContext";
@@ -13,10 +13,13 @@ export default function LogPage() {
     const logs = [];
     documents.forEach((doc) => {
       doc.auditTrail.forEach((entry) => {
-        logs.push({ docId: doc.id, docTitle: doc.judul, time: entry.time, userName: entry.user.nama, userAvatar: entry.user.avatar, userRole: entry.user.role, action: entry.action });
+        logs.push({ 
+          docId: doc.id, docTitle: doc.judul, time: entry.time, 
+          userName: entry.user.nama, userAvatar: entry.user.avatar, 
+          userRole: entry.user.role, action: entry.action 
+        });
       });
     });
-    // If current user is Kepala Sekolah, show only document CRUD-related actions
     const principalOnlyActions = ["mengunggah", "menyetujui", "menolak", "mengarsipkan", "menghapus", "mengubah"];
     const filteredLogs = currentUser?.role === "Kepala Sekolah" ? logs.filter((l) => principalOnlyActions.some((a) => l.action.toLowerCase().includes(a))) : logs;
     return filteredLogs.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
@@ -32,6 +35,17 @@ export default function LogPage() {
       return true;
     });
   }, [allLogs, search, filterAction]);
+
+  // Grouping Berdasarkan User
+  const groupedLogs = useMemo(() => {
+    const groups = {};
+    filtered.forEach(log => {
+      const key = log.userName;
+      if (!groups[key]) groups[key] = { avatar: log.userAvatar, role: log.userRole, activities: [] };
+      groups[key].activities.push(log);
+    });
+    return groups;
+  }, [filtered]);
 
   return (
     <>
@@ -60,22 +74,44 @@ export default function LogPage() {
             <RotateCcw size={14} /> Reset
           </button>
         </div>
+        
+        {/* Kontainer Daftar Grouped Logs */}
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="divide-y divide-border">
-            {filtered.length === 0 && <p className="text-center text-muted-foreground py-8">Tidak ada log ditemukan.</p>}
-            {filtered.map((log, i) => (
-              <div key={`${log.docId}-${log.time}-${i}`} className="flex items-start gap-4 p-4 hover:bg-muted/20 transition-colors">
-                <img src={log.userAvatar} alt="" className="w-10 h-10 rounded-full object-cover shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-sm text-foreground">{log.userName}</span>
-                    <span className="text-xs text-muted-foreground">— {log.userRole}</span>
-                    <span className="text-xs text-muted-foreground ml-auto">{format(new Date(log.time), "yyyy-MM-dd HH:mm")}</span>
+            {Object.keys(groupedLogs).length === 0 && <p className="text-center text-muted-foreground py-8">Tidak ada log ditemukan.</p>}
+            
+            {Object.entries(groupedLogs).map(([userName, data], i) => (
+              <details key={i} className="group transition-colors bg-background [&_summary::-webkit-details-marker]:hidden">
+                <summary className="flex items-center gap-4 p-4 cursor-pointer hover:bg-muted/30 select-none list-none">
+                  <img src={data.avatar} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-sm text-foreground">{userName} <span className="font-normal text-xs text-muted-foreground ml-1">— {data.role}</span></div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{data.activities.length} aktivitas terekam</div>
                   </div>
-                  <div className={`text-sm mt-0.5 ${log.action.startsWith("Catatan Admin") ? "text-accent font-medium italic" : "text-foreground"}`}>{log.action}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1"><FileText size={12} /> {log.docTitle}</div>
+                  <ChevronDown size={18} className="text-muted-foreground transition-transform group-open:rotate-180" />
+                </summary>
+                
+                <div className="px-4 pb-4 pt-1 bg-muted/10 border-t border-border/50">
+                  <div className="ml-[42px] border-l-2 border-primary/20 space-y-4 pl-4 py-2">
+                    {data.activities.map((log, j) => (
+                      <div key={j} className="relative">
+                        <div className="absolute w-2 h-2 bg-primary rounded-full -left-[21px] top-1.5" />
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-0.5">
+                          <span className={`text-sm font-semibold ${log.action.startsWith("Catatan Admin") ? "text-accent italic" : "text-foreground"}`}>
+                            {log.action}
+                          </span>
+                          <span className="text-[11px] font-medium text-muted-foreground bg-background border px-2 py-0.5 rounded-full self-start">
+                            {format(new Date(log.time), "dd/MM/yyyy HH:mm")}
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          <FileText size={12} className="text-primary/70" /> {log.docTitle}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              </details>
             ))}
           </div>
         </div>

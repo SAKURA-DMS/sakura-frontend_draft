@@ -3,6 +3,7 @@ import { Shield, Check, X as XIcon } from "lucide-react";
 import AppHeader from "@/components/layout/AppHeader";
 import { useApp } from "@/contexts/AppContext";
 import { PERMISSIONS } from "@/data/mockData";
+import { useToast } from "@/hooks/use-toast"; // IMPORT TOAST
 
 const ROLES = [
   { role: "Operator/TU", desc: "Akses penuh ke semua fitur sistem" },
@@ -12,6 +13,15 @@ const ROLES = [
 
 export default function RoleManagementPage() {
   const { rolePermissions, togglePermission } = useApp();
+  const { toast } = useToast();
+
+  const handleToggle = (role, permKey) => {
+    togglePermission(role, permKey);
+    toast({
+      title: "Hak Akses Diperbarui",
+      description: `Izin untuk role ${role} telah berhasil diubah.`,
+    });
+  };
 
   return (
     <>
@@ -50,7 +60,7 @@ export default function RoleManagementPage() {
                       const has = rolePermissions[role].includes(perm.key);
                       return (
                         <td key={role} className="text-center py-3 px-4">
-                          <button onClick={() => togglePermission(role, perm.key)} className={`w-8 h-8 rounded-full inline-flex items-center justify-center transition-colors ${has ? "bg-sakura-success/20 text-sakura-success hover:bg-sakura-success/30" : "bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive"}`}>
+                          <button onClick={() => handleToggle(role, perm.key)} className={`w-8 h-8 rounded-full inline-flex items-center justify-center transition-colors ${has ? "bg-sakura-success/20 text-sakura-success hover:bg-sakura-success/30" : "bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive"}`}>
                             {has ? <Check size={16} /> : <XIcon size={16} />}
                           </button>
                         </td>

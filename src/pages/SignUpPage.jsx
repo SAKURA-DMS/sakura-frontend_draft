@@ -73,39 +73,24 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row">
+    <div className="min-h-screen flex flex-col lg:flex-row overflow-hidden">
       {/* ── Left panel ── */}
-      <div className="hidden lg:flex flex-col justify-center w-5/12 relative overflow-hidden px-12 py-16">
-
-        {/* 🌸 Base pink background */}
-        <div
-          className="absolute inset-0"
-          style={{ background: "hsl(340 73% 65%)" }}
-        />
-
-        {/* 🌸 Sakura branch image */}
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${sakuraBg})`, opacity: 0.55 }}
-        />
-
-        {/* 🌸 Dark gradient overlay agar teks putih terbaca */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background: "linear-gradient(to bottom, hsl(340 60% 30% / 0.45) 0%, hsl(340 55% 25% / 0.70) 60%, hsl(340 50% 20% / 0.85) 100%)",
-          }}
-        />
+      <div className="hidden lg:flex flex-col justify-center w-5/12 relative overflow-hidden">
+        <div className="absolute inset-0" style={{ background: "hsl(340 73% 65%)" }} />
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${sakuraBg})`, opacity: 0.55 }} />
+        <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, hsl(340 60% 30% / 0.45) 0%, hsl(340 55% 25% / 0.70) 60%, hsl(340 50% 20% / 0.85) 100%)" }} />
 
         <SakuraPetals count={10} />
 
-        <div className="relative z-10">
+        <div className="relative px-12 py-16 z-10">
           <div className="flex items-center gap-3 mb-10">
             <button onClick={() => navigate("/")} className="flex items-center gap-3 group">
-              <img src={logoSakura} alt="SAKURA" className="w-11 h-11 rounded-xl" />
+              <div className="w-12 h-12 rounded-xl bg-white shadow-lg ring-2 ring-white/40 flex items-center justify-center hover:scale-110 hover:rotate-12 transition-transform">
+                <img src={logoSakura} alt="SAKURA" className="w-10 h-10 rounded-lg" />
+              </div>
               <div className="text-left">
-                <div className="text-white font-bold text-xl tracking-wider">SAKURA</div>
-                <div className="text-white/70 text-xs font-medium">Document Management System</div>
+                <div className="text-white font-bold text-xl tracking-wider drop-shadow">SAKURA</div>
+                <div className="text-white/80 text-xs font-medium">Document Management System</div>
               </div>
             </button>
           </div>
@@ -118,22 +103,24 @@ export default function SignUpPage() {
       </div>
 
       {/* ── Right panel ── */}
-      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 bg-background py-8">
-        <div className="w-full max-w-md">
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 bg-background py-8 h-screen overflow-y-auto">
+        <div className="w-full max-w-md my-auto">
           <button onClick={() => navigate("/")} className="lg:hidden flex items-center gap-3 mb-6">
-            <img src={logoSakura} alt="SAKURA" className="w-10 h-10 rounded-xl" />
+            <div className="w-12 h-12 rounded-xl bg-white shadow-md ring-1 ring-primary/20 flex items-center justify-center">
+              <img src={logoSakura} alt="SAKURA" className="w-10 h-10 rounded-lg" />
+            </div>
             <span className="text-xl font-bold tracking-wider" style={{ color: "hsl(347 45% 38%)" }}>SAKURA</span>
           </button>
 
-          {/* Kembali ke Home */}
+          {/* Kembali */}
           <div className="mb-6">
             <button
-              onClick={() => navigate("/")}
+              onClick={() => navigate(-1)}
               className="flex items-center gap-1.5 text-sm font-medium hover:underline transition-colors"
               style={{ color: "hsl(347 45% 38%)" }}
             >
               <ArrowLeft size={15} />
-              Kembali ke Home
+              Kembali
             </button>
           </div>
 
@@ -155,7 +142,6 @@ export default function SignUpPage() {
                 <Hash size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <input required value={formData.nip} onChange={(e) => update("nip", e.target.value.replace(/\D/g, "").slice(0, 18))} type="text" placeholder="18 digit angka" maxLength={18} className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all" />
               </div>
-              <p className="text-xs text-muted-foreground mt-1">NIP digunakan untuk mengakses dokumen pribadi Anda</p>
             </div>
 
             <div>
@@ -196,7 +182,7 @@ export default function SignUpPage() {
 
             {error && <p className="text-sm text-destructive font-medium">{error}</p>}
 
-            <button type="submit" className="w-full py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity text-white" style={{ background: "hsl(347 55% 42%)" }}>
+            <button type="submit" className="w-full py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity text-white mt-4" style={{ background: "hsl(347 55% 42%)" }}>
               Daftar Akun
             </button>
           </form>

@@ -1,31 +1,44 @@
 import { useState, useRef } from "react";
-import { User, Mail, Shield, Building2, Camera, Upload as UploadIcon, Save, Hash } from "lucide-react";
+import { User, Mail, Shield, Building2, Camera, Upload as UploadIcon, Save, Hash, Pencil } from "lucide-react";
 import AppHeader from "@/components/layout/AppHeader";
 import { useApp } from "@/contexts/AppContext";
 import { useToast } from "@/hooks/use-toast";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 export default function ProfilePage() {
   const { currentUser, updateUserAvatar, updateProfile } = useApp();
   const { toast } = useToast();
+  
+  const [isEditing, setIsEditing] = useState(false);
   const [fullName, setFullName] = useState(currentUser.nama);
   const [saving, setSaving] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  
   const [showPhotoMenu, setShowPhotoMenu] = useState(false);
   const [previewPhoto, setPreviewPhoto] = useState(null);
   const [showCameraModal, setShowCameraModal] = useState(false);
+  const [viewImage, setViewImage] = useState(false); // State untuk expand gambar
+  
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  const handleSave = () => {
+  const handleSaveClick = () => {
     if (!fullName.trim()) {
       toast({ title: "Nama tidak boleh kosong", variant: "destructive" });
       return;
     }
+    setShowConfirm(true); // Memunculkan alert konfirmasi
+  };
+
+  const confirmSave = () => {
+    setShowConfirm(false);
     setSaving(true);
     setTimeout(() => {
       updateProfile({ nama: fullName.trim() });
       toast({ title: "Profil disimpan", description: "Nama lengkap berhasil diperbarui." });
       setSaving(false);
+      setIsEditing(false); // Tutup mode edit
     }, 400);
   };
 
@@ -90,7 +103,9 @@ export default function ProfilePage() {
               <img
                 src={previewPhoto || currentUser.avatar}
                 alt=""
-                className="w-24 h-24 rounded-full object-cover border-4 border-primary/20"
+                onClick={() => !previewPhoto && setViewImage(true)}
+                className={`w-24 h-24 rounded-full object-cover border-4 border-primary/20 ${!previewPhoto ? 'cursor-pointer hover:opacity-80 transition' : ''}`}
+                title="Klik untuk memperbesar foto"
               />
             </div>
             <div className="text-center">
@@ -141,19 +156,25 @@ export default function ProfilePage() {
               <User size={18} className="text-primary" /> Informasi Profil
             </h3>
 
-            {/* Editable: Full Name */}
+            {/* Editable: Full Name (Hanya saat mode isEditing) */}
             <div>
               <label className="block text-xs text-muted-foreground mb-1.5 font-medium">Nama Lengkap</label>
-              <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
-                placeholder="Masukkan nama lengkap"
-              />
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
+                  autoFocus
+                />
+              ) : (
+                <div className="px-3 py-2.5 text-sm rounded-lg bg-muted/50 border border-border cursor-not-allowed select-none text-foreground font-semibold">
+                  {currentUser.nama}
+                </div>
+              )}
             </div>
 
-            {/* Read-only fields with not-allowed cursor */}
+            {/* Read-only fields */}
             {[
               { icon: Mail, label: "Email", value: currentUser.email },
               { icon: Shield, label: "Role", value: currentUser.role },
@@ -169,17 +190,60 @@ export default function ProfilePage() {
               </div>
             ))}
 
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
-              <Save size={16} />
-              {saving ? "Menyimpan..." : "Simpan Perubahan"}
-            </button>
+            {/* Tombol Simpan / Edit */}
+            <div className="pt-2">
+              {!isEditing ? (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+                >
+                  <Pencil size={16} /> Edit Informasi Profil
+                </button>
+              ) : (
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => { setIsEditing(false); setFullName(currentUser.nama); }}
+                    className="w-1/2 py-2.5 rounded-lg border border-input text-sm font-semibold hover:bg-muted transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    onClick={handleSaveClick}
+                    disabled={saving}
+                    className="w-1/2 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+                  >
+                    <Save size={16} /> {saving ? "Menyimpan..." : "Simpan Perubahan"}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Pop Up Confirm Dialog */}
+      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Simpan Perubahan Profil?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apakah Anda yakin ingin menyimpan perubahan pada profil ini?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmSave}>Ya, Simpan</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Expand Full Image Overlay */}
+      {viewImage && (
+        <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-6" onClick={() => setViewImage(false)}>
+          <img src={currentUser.avatar} alt="Avatar" className="max-w-full max-h-[85vh] rounded-2xl shadow-2xl object-contain animate-in zoom-in-95 duration-200" />
+          <button className="absolute top-6 right-6 text-white/70 hover:text-white" onClick={() => setViewImage(false)}>Tutup</button>
+        </div>
+      )}
 
       {/* Camera Modal */}
       {showCameraModal && (

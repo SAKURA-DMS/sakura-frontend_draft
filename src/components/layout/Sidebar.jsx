@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Upload, Archive, Users, Shield, FileText, Settings,
   PanelLeftClose, PanelLeft, ChevronDown, Clock, CheckCircle, GitBranch,
-  BarChart3, FolderOpen,
+  BarChart3, FolderOpen, Trash2 // TRASH2 SUDAH DITAMBAHKAN DI SINI
 } from "lucide-react";
 import logoSakura from "@/assets/logo_sakura.png";
 import { useApp } from "@/contexts/AppContext";
@@ -18,7 +18,7 @@ export default function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
 
   // Dropdown states
-  const [dashOpen, setDashOpen] = useState(location.pathname === "/dashboard");
+  const [dashOpen, setDashOpen] = useState(location.pathname === "/dashboard" || location.pathname.startsWith("/approval"));
   const [arsipOpen, setArsipOpen] = useState(location.pathname === "/archive");
   const [approvalOpen, setApprovalOpen] = useState(location.pathname.startsWith("/approval"));
 
@@ -58,7 +58,6 @@ export default function AppSidebar() {
       if (isOperator) return true;
       if (isKepsek) return true;
       if (isGuru) {
-        // Guru only sees Kepegawaian → Sertifikat/Diklat
         if (item.module === "Kepegawaian") return true;
         return false;
       }
@@ -77,7 +76,7 @@ export default function AppSidebar() {
 
   const currentFolder = searchParams.get("folder");
   const approvalActive = location.pathname.startsWith("/approval");
-  const dashActive = location.pathname === "/dashboard";
+  const dashActive = location.pathname === "/dashboard" || approvalActive;
   const arsipActive = location.pathname === "/archive";
 
   // Simple nav items (non-dropdown)
@@ -96,7 +95,7 @@ export default function AppSidebar() {
       whileTap={{ scale: 0.98 }}
       className={`relative w-full flex ${collapsed ? "flex-col items-center justify-center py-3 px-1" : "items-center gap-3 px-3 py-2.5"} rounded-xl font-medium transition-all duration-200 ${
         active
-          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+          ? "bg-primary/[0.08] text-primary"
           : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
       } ${indent ? "pl-8" : ""}`}
     >
@@ -115,32 +114,43 @@ export default function AppSidebar() {
     </motion.button>
   );
 
-  const DropdownGroup = ({ open, onToggle, active, icon: Icon, label, badge, children }) => (
-    <div>
+  const DropdownGroup = ({ open, onToggle, active, icon: Icon, label, badge, onClickNav, children }) => (
+    <div className="mb-1">
       {collapsed ? (
-        <NavButton active={active} icon={Icon} label={label} badge={badge} onClick={() => children?.[0]?.props?.onClick?.()} />
+        <NavButton active={active} icon={Icon} label={label} badge={badge} onClick={onClickNav} />
       ) : (
         <>
-          <motion.button
-            onClick={onToggle}
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.98 }}
-            className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all duration-200 ${
+          <div
+            className={`group relative w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-medium transition-all duration-200 ${
               active ? "bg-primary/[0.08] text-primary" : "text-sidebar-foreground hover:bg-sidebar-accent/50"
             }`}
           >
             {active && (
               <motion.div layoutId="sidebar-indicator" className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-primary" transition={{ type: "spring", stiffness: 350, damping: 30 }} />
             )}
-            <Icon size={18} className={`shrink-0 ${active ? "text-primary" : ""}`} />
-            <span className="text-[13px] flex-1 text-left">{label}</span>
-            {badge && <span className="text-[10px] font-bold bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-[18px] text-center">{badge}</span>}
-            <ChevronDown size={14} className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
-          </motion.button>
+            
+            {/* Navigasi Utama */}
+            <div className="flex items-center gap-3 flex-1 cursor-pointer" onClick={onClickNav}>
+              <Icon size={18} className={`shrink-0 ${active ? "text-primary" : ""}`} />
+              <span className="text-[13px] flex-1 text-left">{label}</span>
+              {badge && <span className="text-[10px] font-bold bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-[18px] text-center mr-1">{badge}</span>}
+            </div>
+
+            {/* Tombol Panah (Muncul Saat Hover) */}
+            <button 
+              onClick={(e) => { e.stopPropagation(); onToggle(); }} 
+              className="p-1 rounded opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-sidebar-accent shrink-0 transition-opacity"
+            >
+              <ChevronDown size={14} className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+            </button>
+          </div>
+          
           <AnimatePresence initial={false}>
             {open && (
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }} className="overflow-hidden">
-                {children}
+                <div className="mt-1 pl-4 border-l border-sidebar-border/50 ml-5 space-y-1">
+                  {children}
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -186,78 +196,102 @@ export default function AppSidebar() {
       <div className="mx-4 h-px bg-sidebar-border" />
 
       {/* Nav */}
-      <nav className="flex-1 px-2 mt-3 space-y-1 overflow-y-auto scrollbar-thin">
-        {/* Dashboard dropdown */}
+      <nav className="flex-1 px-2 mt-3 space-y-1 overflow-y-auto scrollbar-thin pb-6">
+        
+        {/* ========================================= */}
+        {/* DASHBOARD DROPDOWN (BERISI PERSETUJUAN) */}
+        {/* ========================================= */}
         <DropdownGroup
           open={dashOpen}
           onToggle={() => setDashOpen(!dashOpen)}
           active={dashActive}
           icon={LayoutDashboard}
           label="Dashboard"
+          onClickNav={() => navigate("/dashboard")}
         >
           <button
             onClick={() => navigate("/dashboard")}
-            className={`w-full flex items-center gap-2.5 pl-8 pr-3 py-2 text-[13px] rounded-lg transition-colors ${
-              dashActive && !searchParams.get("tab") ? "text-primary font-medium border-l-[3px] border-primary ml-1" : "text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent/30"
+            className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] rounded-lg transition-colors ${
+              location.pathname === "/dashboard" ? "text-primary font-bold bg-primary/[0.06]" : "text-sidebar-foreground/70 hover:text-primary hover:bg-sidebar-accent/30"
             }`}
           >
             <BarChart3 size={14} />
             <span className="flex-1 text-left">Ringkasan</span>
           </button>
-          {(isOperator || isKepsek) && (
-            <button
-              onClick={() => navigate("/approval/pending")}
-              className={`w-full flex items-center gap-2.5 pl-8 pr-3 py-2 text-[13px] rounded-lg transition-colors ${
-                approvalActive ? "text-primary font-medium border-l-[3px] border-primary ml-1" : "text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent/30"
-              }`}
-            >
-              <CheckCircle size={14} />
-              <span className="flex-1 text-left">Persetujuan</span>
-              {pendingCount > 0 && <span className="text-[10px] font-bold bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-[18px] text-center">{pendingCount}</span>}
-            </button>
+          
+          {showApproval && (
+            <div className="mt-1">
+              <div className="group/sub flex items-center justify-between text-[12px] rounded-lg transition-colors hover:bg-sidebar-accent/30 hover:text-primary">
+                <div 
+                  className={`flex-1 flex items-center gap-2.5 px-3 py-1.5 cursor-pointer ${approvalActive ? "text-primary font-bold" : "text-sidebar-foreground/70"}`} 
+                  onClick={() => navigate("/approval/pending")}
+                >
+                  <GitBranch size={14} /> Persetujuan
+                </div>
+                <button onClick={(e) => { e.stopPropagation(); setApprovalOpen(!approvalOpen); }} className="p-1 rounded opacity-0 group-hover/sub:opacity-100 transition-opacity">
+                  <ChevronDown size={12} className={approvalOpen ? "rotate-180" : ""} />
+                </button>
+              </div>
+              
+              <AnimatePresence initial={false}>
+                {approvalOpen && (
+                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden pl-6 mt-1 space-y-0.5">
+                     <button onClick={() => navigate("/approval/pending")} className={`w-full flex items-center justify-between px-2 py-1.5 text-[11px] rounded-lg ${location.pathname === "/approval/pending" ? "text-primary font-semibold bg-primary/[0.06]" : "text-sidebar-foreground/60 hover:text-primary"}`}>
+                       <div className="flex items-center gap-2"><Clock size={12} /> Pending</div>
+                       {pendingCount > 0 && <span className="bg-primary text-white px-1.5 rounded-full">{pendingCount}</span>}
+                     </button>
+                     <button onClick={() => navigate("/approval/approved")} className={`w-full flex items-center gap-2 px-2 py-1.5 text-[11px] rounded-lg ${location.pathname === "/approval/approved" ? "text-primary font-semibold bg-primary/[0.06]" : "text-sidebar-foreground/60 hover:text-primary"}`}>
+                       <CheckCircle size={12} /> Disetujui
+                     </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           )}
         </DropdownGroup>
 
-        {/* Arsip dropdown with folder tree */}
+        {/* ========================================= */}
+        {/* ARSIP DROPDOWN                            */}
+        {/* ========================================= */}
         <DropdownGroup
           open={arsipOpen}
           onToggle={() => setArsipOpen(!arsipOpen)}
           active={arsipActive}
           icon={Archive}
           label="Arsip"
+          onClickNav={() => navigate("/archive")}
         >
           {visibleFolders.map((item, idx) => {
             if (!item.module) {
-              // "Semua Dokumen"
               return (
                 <button
                   key="all"
                   onClick={() => navigate("/archive")}
-                  className={`w-full flex items-center gap-2.5 pl-8 pr-3 py-2 text-[12px] rounded-lg transition-colors ${
-                    arsipActive && !currentFolder ? "text-primary font-medium bg-primary/[0.06]" : "text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent/30"
+                  className={`w-full flex items-center gap-2 px-3 py-1.5 text-[12px] rounded-lg transition-colors ${
+                    arsipActive && !currentFolder ? "text-primary font-bold bg-primary/[0.06]" : "text-sidebar-foreground/70 hover:text-primary hover:bg-sidebar-accent/30"
                   }`}
                 >
-                  <FolderOpen size={13} />
+                  <FolderOpen size={14} />
                   <span className="flex-1 text-left">{item.label}</span>
                 </button>
               );
             }
             return (
               <div key={item.module}>
-                <div className="px-3 pt-3 pb-1">
-                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{item.module}</span>
+                <div className="px-2 pt-2 pb-1">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{item.module}</span>
                 </div>
                 {item.children.map((child) => (
                   <button
                     key={child.folder}
                     onClick={() => navigate(`/archive?folder=${child.folder}`)}
-                    className={`w-full flex items-center gap-2 pl-10 pr-3 py-1.5 text-[12px] rounded-md transition-colors ${
-                      currentFolder === child.folder ? "bg-primary/[0.08] text-primary font-medium" : "text-sidebar-foreground/60 hover:bg-primary/[0.06] hover:text-primary"
+                    className={`w-full flex items-center justify-between px-2 py-1.5 text-[12px] rounded-md transition-colors ${
+                      currentFolder === child.folder ? "bg-primary/[0.08] text-primary font-bold" : "text-sidebar-foreground/60 hover:bg-primary/[0.06] hover:text-primary"
                     }`}
                   >
-                    <span className="flex-1 text-left">{child.label}</span>
+                    <span className="truncate pr-2">{child.label}</span>
                     {folderCounts[child.folder] > 0 && (
-                      <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">{folderCounts[child.folder]}</span>
+                      <span className="text-[9px] text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">{folderCounts[child.folder]}</span>
                     )}
                   </button>
                 ))}
@@ -266,44 +300,17 @@ export default function AppSidebar() {
           })}
         </DropdownGroup>
 
-        {/* Persetujuan dropdown (separate for Kepala Sekolah / Operator) */}
-        {showApproval && (
-          <DropdownGroup
-            open={approvalOpen}
-            onToggle={() => setApprovalOpen(!approvalOpen)}
-            active={approvalActive}
-            icon={GitBranch}
-            label="Persetujuan"
-            badge={pendingCount > 0 ? pendingCount : undefined}
-          >
-            <button
-              onClick={() => navigate("/approval/pending")}
-              className={`w-full flex items-center gap-2.5 pl-8 pr-3 py-2 text-[13px] rounded-lg transition-colors ${
-                location.pathname === "/approval/pending" ? "text-primary font-medium border-l-[3px] border-primary ml-1" : "text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent/30"
-              }`}
-            >
-              <Clock size={14} />
-              <span className="flex-1 text-left">Pending</span>
-              {pendingCount > 0 && <span className="text-[10px] font-bold bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 min-w-[18px] text-center">{pendingCount}</span>}
-            </button>
-            <button
-              onClick={() => navigate("/approval/approved")}
-              className={`w-full flex items-center gap-2.5 pl-8 pr-3 py-2 text-[13px] rounded-lg transition-colors ${
-                location.pathname === "/approval/approved" ? "text-primary font-medium border-l-[3px] border-primary ml-1" : "text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent/30"
-              }`}
-            >
-              <CheckCircle size={14} />
-              <span className="flex-1 text-left">Disetujui</span>
-            </button>
-          </DropdownGroup>
-        )}
-
         {/* Simple nav items */}
         {simpleItems.map((item) => (
           <NavButton key={item.path} active={location.pathname === item.path} icon={item.icon} label={item.label} onClick={() => navigate(item.path)} />
         ))}
 
         <div className="!my-4 mx-2 h-px bg-sidebar-border" />
+
+        {/* ========================================= */}
+        {/* TAMBAHAN MENU SAMPAH                      */}
+        {/* ========================================= */}
+        <NavButton active={location.pathname === "/trash"} icon={Trash2} label="Sampah" onClick={() => navigate("/trash")} />
 
         <NavButton active={location.pathname === "/settings"} icon={Settings} label="Pengaturan" onClick={() => navigate("/settings")} />
       </nav>
