@@ -23,23 +23,28 @@ import ProfilePage from "@/pages/ProfilePage.jsx";
 import ChangePasswordPage from "@/pages/ChangePasswordPage.jsx";
 import HomeDashboardPage from "@/pages/HomeDashboardPage.jsx";
 import NotFound from "./pages/NotFound.jsx";
+import TrashPage from "@/pages/TrashPage.jsx"; // IMPORT ROUTE SAMPAH
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
 function ProtectedRoute({ children }) {
   const { isLoggedIn } = useApp();
-  if (!isLoggedIn) return <Navigate to="/" replace />;
+  // Jika refresh dan status login tidak ada di memori lokal, baru arahkan keluar
+  if (!isLoggedIn) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
 function AppRoutes() {
   const { isLoggedIn } = useApp();
+  
   return (
     <Routes>
       <Route path="/" element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <HomePage />} />
       <Route path="/login" element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
       <Route path="/signup" element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <SignUpPage />} />
       <Route path="/verify-document/:id" element={<VerifyPage />} />
+      
+      {/* Rute yang Terlindungi dari pengguna yang belum login */}
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route path="/home" element={<HomeDashboardPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
@@ -51,10 +56,12 @@ function AppRoutes() {
         <Route path="/users" element={<UserManagementPage />} />
         <Route path="/roles" element={<RoleManagementPage />} />
         <Route path="/logs" element={<LogPage />} />
+        <Route path="/trash" element={<TrashPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/change-password" element={<ChangePasswordPage />} />
       </Route>
+      
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

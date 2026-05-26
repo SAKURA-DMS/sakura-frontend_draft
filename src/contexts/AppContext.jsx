@@ -11,16 +11,50 @@ export const useApp = () => {
 };
 
 export const AppProvider = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState(USERS[0]);
+  // --- STATE PERSISTENCE (Menyimpan Status Login) ---
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return localStorage.getItem("sakura_isLoggedIn") === "true";
+  });
+
+  const [currentUser, setCurrentUser] = useState(() => {
+    const saved = localStorage.getItem("sakura_currentUser");
+    return saved ? JSON.parse(saved) : USERS[0];
+  });
+
   const [users, setUsers] = useState(USERS);
   const [documents, setDocuments] = useState(DOCUMENTS);
   const [rolePermissions, setRolePermissions] = useState(ROLE_PERMISSIONS);
   const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
   const [documentCounters, setDocumentCounters] = useState(INITIAL_DOCUMENT_COUNTERS);
   const countersRef = useRef(documentCounters);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [customFolders, setCustomFolders] = useState([]);
   const nextFolderIdRef = useRef(1000);
+
+  // --- Helpers untuk Simpan Sesi ---
+  const saveSession = (loggedIn, user) => {
+    setIsLoggedIn(loggedIn);
+    localStorage.setItem("sakura_isLoggedIn", loggedIn);
+    if (user) {
+      setCurrentUser(user);
+      localStorage.setItem("sakura_currentUser", JSON.stringify(user));
+    } else {
+      localStorage.removeItem("sakura_currentUser");
+    }
+  };
+
+  // --- FUNGSI LOGIN & LOGOUT (Hanya Ada 1 Sekarang) ---
+  const login = (email) => {
+    const user = users.find((u) => u.email === email);
+    if (!user) return false;
+    if (user.status === "menunggu_approval") return "pending";
+    saveSession(true, user); // <-- Ini yang akan menyimpan data login Anda
+    return true;
+  };
+
+  const logout = () => {
+    saveSession(false, null);
+    window.location.href = "/"; 
+  };
 
   // --- Folder CRUD ---
   const createFolder = (folderName, parentPath = null, description = "") => {
@@ -44,7 +78,6 @@ export const AppProvider = ({ children }) => {
   };
 
   const moveDocument = (docId, newFolderPath) => {
-    // Parse the folder path to extract category/type/year
     const parts = newFolderPath.split("/");
     const catPart = parts.find((p) => p.startsWith("cat:"));
     const typePart = parts.find((p) => p.startsWith("type:"));
@@ -72,7 +105,6 @@ export const AppProvider = ({ children }) => {
     }));
   };
 
-  // Soft-delete: move document to trash (set deletedAt). Permanent delete after 30 days.
   const deleteDocument = (docId) => {
     setDocuments((prev) => prev.map((d) => d.id === docId ? { ...d, deletedAt: new Date().toISOString() } : d));
   };
@@ -88,7 +120,6 @@ export const AppProvider = ({ children }) => {
   const permanentlyDeleteDocument = (docId) => {
     setDocuments((prev) => prev.filter((d) => d.id !== docId));
   };
-
 
   const generateDocumentNumber = (typeId) => {
     const docType = DOCUMENT_TYPES.find((t) => t.type_id === typeId);
@@ -111,15 +142,7 @@ export const AppProvider = ({ children }) => {
     return `${prefix}/${year}/${String(nextSeq).padStart(3, "0")}`;
   };
 
-  // getFolderForCategory removed — folder mapping now handled by getFolderIdForDocument in mockData
-
-  const login = (email) => {
-    const user = users.find((u) => u.email === email);
-    if (!user) return false;
-    if (user.status === "menunggu_approval") return "pending";
-    setCurrentUser(user); setIsLoggedIn(true); return true;
-  };
-
+  // --- Users & Roles ---
   const registerUser = (userData) => {
     const newUser = { ...userData, id: Date.now(), status: "menunggu_approval", avatar: avatarAdmin, registeredAt: new Date().toISOString() };
     setUsers((prev) => [...prev, newUser]);
@@ -137,21 +160,23 @@ export const AppProvider = ({ children }) => {
   const pendingUsers = users.filter((u) => u.status === "menunggu_approval");
   const activeUsers = users.filter((u) => u.status !== "menunggu_approval");
 
-  const logout = () => setIsLoggedIn(false);
-
   const hasPermission = (permission) => {
     return rolePermissions[currentUser.role]?.includes(permission) ?? false;
   };
 
   const updateUserRole = (userId, newRole) => {
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
-    if (currentUser.id === userId) setCurrentUser((p) => ({ ...p, role: newRole }));
+    if (currentUser.id === userId) {
+      const updatedUser = { ...currentUser, role: newRole };
+      saveSession(true, updatedUser); // Update sesi lokal juga
+    }
   };
 
   const updateUserAvatar = (userId, avatar) => {
     if (userId !== currentUser.id) return;
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, avatar } : u)));
-    setCurrentUser((p) => ({ ...p, avatar }));
+    const updatedUser = { ...currentUser, avatar };
+    saveSession(true, updatedUser); // Update sesi lokal juga
   };
 
   const togglePermission = (role, permission) => {
@@ -216,8 +241,6 @@ export const AppProvider = ({ children }) => {
       ...doc, id: Date.now(), status: "Menunggu", versi: 1, tanggalEdit: doc.tanggalUpload,
       auditTrail: [{ time: doc.tanggalUpload, user: { nama: currentUser.nama, avatar: currentUser.avatar, role: currentUser.role }, action: "Mengunggah dokumen" }],
     };
-    // If the document references a folder that doesn't exist in static FOLDERS,
-    // create a custom folder entry so it appears in customFolders for the UI.
     if (!newDoc.folder_id && newDoc.folderTujuan) {
       const created = createFolder(newDoc.folderTujuan, null, "Auto-created from upload");
       newDoc.customFolderId = created.id;
@@ -264,17 +287,19 @@ export const AppProvider = ({ children }) => {
   const updateUser = (userId, data) => {
     if (currentUser.role !== "Operator/TU") return;
     setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, ...data } : u));
-    if (currentUser.id === userId) setCurrentUser((p) => ({ ...p, ...data }));
+    if (currentUser.id === userId) {
+      const updatedUser = { ...currentUser, ...data };
+      saveSession(true, updatedUser); // Update sesi lokal juga
+    }
   };
 
-  // Self-update profile (any logged-in user can update their own name)
   const updateProfile = (data) => {
     const allowed = { nama: data.nama };
     setUsers((prev) => prev.map((u) => u.id === currentUser.id ? { ...u, ...allowed } : u));
-    setCurrentUser((p) => ({ ...p, ...allowed }));
+    const updatedUser = { ...currentUser, ...allowed };
+    saveSession(true, updatedUser); // Update sesi lokal juga
   };
 
-  // Change password (mock — compares against stored password)
   const changePassword = (currentPw, newPw) => {
     const user = users.find((u) => u.id === currentUser.id);
     if ((user.password || "password123") !== currentPw) return false;
@@ -289,21 +314,19 @@ export const AppProvider = ({ children }) => {
     return true;
   };
 
-  // Toggle 2FA (email OTP) for the current user. Saved on user record so login can check.
   const setTwoFactorEnabled = (enabled) => {
     setUsers((prev) => prev.map((u) => u.id === currentUser.id ? { ...u, twoFactorEnabled: enabled } : u));
-    setCurrentUser((p) => ({ ...p, twoFactorEnabled: enabled }));
+    const updatedUser = { ...currentUser, twoFactorEnabled: enabled };
+    saveSession(true, updatedUser); // Update sesi lokal juga
   };
 
   // Derived collections
   const trashedDocuments = documents.filter((d) => d.deletedAt);
   const activeDocuments = documents.filter((d) => !d.deletedAt);
 
-  // Role-aware notification view (frontend gating only)
   const visibleNotifications = notifications.filter((n) => {
-    if (currentUser.role === "Operator/TU") return n.type !== "approval" || true; // TU: user approvals + everything
+    if (currentUser.role === "Operator/TU") return n.type !== "approval" || true;
     if (currentUser.role === "Kepala Sekolah") return ["approval", "upload", "rejection", "archive"].includes(n.type);
-    // Guru: view-only, no approval notifications
     return false;
   });
 
@@ -324,4 +347,3 @@ export const AppProvider = ({ children }) => {
     </AppContext.Provider>
   );
 };
-
