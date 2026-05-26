@@ -72,7 +72,7 @@ export default function UserManagementPage() {
   return (
     <>
       <AppHeader title="Manajemen User" subtitle="SMP Negeri 4 Cikarang Barat" />
-      <div className="p-4 sm:p-8 animate-fade-in space-y-6">
+      <div className="p-4 sm:p-8 space-y-6">
         {/* Pending approval section */}
         {isAdmin && (
           <div>
@@ -125,7 +125,7 @@ export default function UserManagementPage() {
 
         {/* Active users table */}
         <div>
-          {isAdmin && (<div className="flex justify-end mb-4"><button onClick={() => { setFormData(EMPTY_FORM); setShowCreateModal(true); }} className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"><Plus size={16} /> Tambah User</button></div>)}
+          {isAdmin && (<div className="flex justify-end mb-4"><button onClick={() => { setFormData(EMPTY_FORM); setShowCreateModal(true); }} className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90"><Plus size={16} /> Tambah User</button></div>)}
           <div className="bg-card border border-border rounded-xl overflow-x-auto">
             <table className="w-full text-sm">
               <thead><tr className="border-b border-border bg-muted/30"><th className="text-left py-3 px-4 font-semibold">Pengguna</th><th className="text-left py-3 px-4 font-semibold hidden sm:table-cell">Email</th><th className="text-left py-3 px-4 font-semibold">Role</th><th className="text-left py-3 px-4 font-semibold hidden md:table-cell">Departemen</th><th className="text-center py-3 px-4 font-semibold">Aksi</th></tr></thead>
@@ -136,8 +136,8 @@ export default function UserManagementPage() {
                   <td className="py-3 px-4"><span className="text-xs px-2 py-0.5 rounded-full bg-primary text-primary-foreground font-medium">{u.role}</span></td>
                   <td className="py-3 px-4 text-muted-foreground hidden md:table-cell">{u.departemen}</td>
                   <td className="py-3 px-4 text-center"><div className="flex items-center justify-center gap-2">
-                    {isAdmin && (<><button onClick={() => openEdit(u)} className="text-xs px-3 py-1 rounded-lg border border-input hover:bg-muted transition-colors flex items-center gap-1"><Pencil size={12} /> Edit</button>{u.id !== currentUser.id && (<button onClick={() => setDeleteUserId(u.id)} className="text-xs px-3 py-1 rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors flex items-center gap-1"><Trash2 size={12} /> Hapus</button>)}</>)}
-                    <button onClick={() => setProfileUser(u)} className="text-xs px-3 py-1 rounded-lg border border-input hover:bg-muted transition-colors">Profil</button>
+                    {isAdmin && (<><button onClick={() => openEdit(u)} className="text-xs px-3 py-1 rounded-lg border border-input hover:bg-muted flex items-center gap-1"><Pencil size={12} /> Edit</button>{u.id !== currentUser.id && (<button onClick={() => setDeleteUserId(u.id)} className="text-xs px-3 py-1 rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 flex items-center gap-1"><Trash2 size={12} /> Hapus</button>)}</>)}
+                    <button onClick={() => setProfileUser(u)} className="text-xs px-3 py-1 rounded-lg border border-input hover:bg-muted">Profil</button>
                   </div></td>
                 </tr>
               ))}</tbody>
