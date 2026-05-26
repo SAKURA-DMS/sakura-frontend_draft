@@ -20,7 +20,7 @@ export default function DashboardPage() {
   const [detailDoc, setDetailDoc] = useState(null);
 
   const visibleDocs = useMemo(() => {
-    if (currentUser.role === "Guru") {
+    if (currentUser?.role === "Guru") {
       return documents.filter((d) => d.pengunggah.id === currentUser.id);
     }
     return documents;
@@ -40,7 +40,6 @@ export default function DashboardPage() {
       <Header title="Dashboard" subtitle="Ringkasan aktivitas dokumen" />
 
       <div className="p-6 lg:p-8 space-y-6 bg-background">
-
         {/* Hero greeting */}
         <div
           className="relative overflow-hidden rounded-2xl p-6 lg:p-8"
@@ -58,7 +57,7 @@ export default function DashboardPage() {
           </svg>
           <div className="relative">
             <p className="text-primary/70 text-sm font-medium">{getGreeting()},</p>
-            <h2 className="text-2xl lg:text-3xl font-bold text-foreground mt-1">{currentUser.nama}</h2>
+            <h2 className="text-2xl lg:text-3xl font-bold text-foreground mt-1">{currentUser?.nama}</h2>
             <p className="text-muted-foreground text-sm mt-2 max-w-lg">
               Kelola dokumen, pantau status persetujuan, dan arsipkan dokumen administrasi sekolah.
             </p>
@@ -71,7 +70,7 @@ export default function DashboardPage() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`relative flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+              className={`relative flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium ${
                 activeTab === tab.key
                   ? "bg-card text-foreground shadow-soft"
                   : "text-muted-foreground hover:text-foreground"
@@ -178,8 +177,8 @@ function OverviewTab({ visibleDocs, onOpenList, onSelectDoc }) {
           </h3>
           <div className="space-y-1">
             {recentDocs.map((doc) => (
-              <button key={doc.id} onClick={() => onSelectDoc(doc)} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-all duration-200 text-left group">
-                <div className="w-9 h-9 rounded-lg bg-primary/8 flex items-center justify-center shrink-0 group-hover:bg-primary/12 transition-colors">
+              <button key={doc.id} onClick={() => onSelectDoc(doc)} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 text-left group">
+                <div className="w-9 h-9 rounded-lg bg-primary/8 flex items-center justify-center shrink-0 group-hover:bg-primary/12">
                   <FileText size={18} className="text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -267,7 +266,7 @@ function PersetujuanTab({ documents, canApprove, approveDocument, rejectDocument
         {pendingDocs.map((doc) => {
           const urgency = getUrgency(doc);
           return (
-            <div key={doc.id} className="bg-card rounded-2xl border border-border overflow-hidden hover:shadow-card-hover transition-shadow duration-300">
+            <div key={doc.id} className="bg-card rounded-2xl border border-border overflow-hidden hover:shadow-card-hover">
               <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/20">
                 <div className="flex items-center gap-2.5">
                   <img src={doc.pengunggah.avatar} alt="" className="w-8 h-8 rounded-lg object-cover" />
@@ -301,7 +300,7 @@ function PersetujuanTab({ documents, canApprove, approveDocument, rejectDocument
               <div className="flex items-center gap-2 px-5 py-3 border-t border-border">
                 <button
                   onClick={() => onSelectDoc(doc)}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-border text-[12px] font-medium hover:bg-muted transition-colors"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-border text-[12px] font-medium hover:bg-muted"
                 >
                   <Eye size={14} /> Review
                 </button>
@@ -309,13 +308,13 @@ function PersetujuanTab({ documents, canApprove, approveDocument, rejectDocument
                   <>
                     <button
                       onClick={() => setApproveId(doc.id)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-sakura-success text-white text-[12px] font-bold hover:opacity-90 transition-opacity"
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-sakura-success text-white text-[12px] font-bold hover:opacity-90"
                     >
                       <CheckCircle size={14} /> Setujui
                     </button>
                     <button
                       onClick={() => setRejectId(doc.id)}
-                      className="p-2 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+                      className="p-2 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20"
                     >
                       <XCircle size={14} />
                     </button>
@@ -333,8 +332,8 @@ function PersetujuanTab({ documents, canApprove, approveDocument, rejectDocument
             <h3 className="font-bold text-foreground mb-3">Konfirmasi Persetujuan</h3>
             <textarea value={approveComment} onChange={(e) => setApproveComment(e.target.value)} placeholder="Komentar (opsional)..." rows={3} className="w-full px-3 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none mb-4" />
             <div className="flex gap-2 justify-end">
-              <button onClick={() => { setApproveId(null); setApproveComment(""); }} className="px-4 py-2 rounded-lg border border-input text-sm font-medium hover:bg-muted transition-colors">Batal</button>
-              <button onClick={() => handleApprove(approveId)} className="px-4 py-2 rounded-lg bg-sakura-success text-white text-sm font-bold hover:opacity-90 transition-opacity">Setujui</button>
+              <button onClick={() => { setApproveId(null); setApproveComment(""); }} className="px-4 py-2 rounded-lg border border-input text-sm font-medium hover:bg-muted">Batal</button>
+              <button onClick={() => handleApprove(approveId)} className="px-4 py-2 rounded-lg bg-sakura-success text-white text-sm font-bold hover:opacity-90">Setujui</button>
             </div>
           </div>
         </div>
@@ -346,8 +345,8 @@ function PersetujuanTab({ documents, canApprove, approveDocument, rejectDocument
             <h3 className="font-bold text-foreground mb-3">Alasan Penolakan</h3>
             <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Masukkan alasan penolakan..." rows={3} className="w-full px-3 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none mb-4" />
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setRejectId(null)} className="px-4 py-2 rounded-lg border border-input text-sm font-medium hover:bg-muted transition-colors">Batal</button>
-              <button onClick={() => handleReject(rejectId)} className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-bold hover:opacity-90 transition-opacity">Tolak</button>
+              <button onClick={() => setRejectId(null)} className="px-4 py-2 rounded-lg border border-input text-sm font-medium hover:bg-muted">Batal</button>
+              <button onClick={() => handleReject(rejectId)} className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-bold hover:opacity-90">Tolak</button>
             </div>
           </div>
         </div>

@@ -83,7 +83,7 @@ export default function AppSidebar() {
     <button
       onClick={onClick}
       title={collapsed ? label : undefined}
-      className={`w-full flex ${collapsed ? "flex-col items-center justify-center py-3 px-1" : "items-center gap-3 px-3 py-2.5"} rounded-xl font-medium transition-colors ${
+      className={`w-full flex ${collapsed ? "flex-col items-center justify-center py-3 px-1" : "items-center gap-3 px-3 py-2.5"} rounded-xl font-medium ${
         active
           ? "bg-primary/[0.08] text-primary"
           : "text-sidebar-foreground hover:bg-sidebar-accent"
@@ -101,14 +101,13 @@ export default function AppSidebar() {
         <NavButton active={active} icon={Icon} label={label} badge={badge} onClick={onClickNav} />
       ) : (
         <>
-          <div className={`group flex items-center justify-between px-3 py-2.5 rounded-xl font-medium transition-colors ${active ? "bg-primary/[0.08] text-primary" : "text-sidebar-foreground hover:bg-sidebar-accent"}`}>
+          <div className={`group flex items-center justify-between px-3 py-2.5 rounded-xl font-medium ${active ? "bg-primary/[0.08] text-primary" : "text-sidebar-foreground hover:bg-sidebar-accent"}`}>
             <div className="flex items-center gap-3 flex-1 cursor-pointer" onClick={onClickNav}>
               <Icon size={18} className="shrink-0" />
               <span className="text-[13px]">{label}</span>
               {badge && <span className="ml-auto mr-2 text-[10px] font-bold bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 text-center">{badge}</span>}
             </div>
-            {/* Panah baru muncul transparan menjadi jelas jika di-hover ke kanan */}
-            <button onClick={(e) => { e.stopPropagation(); onToggle(); }} className="p-1 rounded-md opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-sidebar-accent/80 shrink-0 transition-opacity">
+            <button onClick={(e) => { e.stopPropagation(); onToggle(); }} className="p-1 rounded-md opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-sidebar-accent/80 shrink-0">
               <ChevronDown size={14} className={open ? "rotate-180" : ""} />
             </button>
           </div>
@@ -124,7 +123,7 @@ export default function AppSidebar() {
 
   return (
     <aside
-      className={`sticky top-0 h-screen bg-sidebar flex flex-col shrink-0 border-r border-sidebar-border transition-all duration-200 ${collapsed ? "w-[72px]" : "w-[260px]"}`}
+      className={`sticky top-0 h-screen bg-sidebar flex flex-col shrink-0 border-r border-sidebar-border ${collapsed ? "w-[72px]" : "w-[260px]"}`}
     >
       <div className="px-3 pt-5 pb-3">
         {collapsed ? (
@@ -166,18 +165,18 @@ export default function AppSidebar() {
         >
           <button
             onClick={() => navigate("/dashboard")}
-            className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-lg transition-colors ${location.pathname === "/dashboard" ? "text-primary font-bold" : "text-sidebar-foreground/70 hover:text-primary"}`}
+            className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-lg ${location.pathname === "/dashboard" ? "text-primary font-bold" : "text-sidebar-foreground/70 hover:text-primary"}`}
           >
             <BarChart3 size={14} /> Ringkasan
           </button>
           
           {showApproval && (
             <div className="mt-1">
-              <div className="group/sub flex items-center justify-between text-xs rounded-lg transition-colors hover:text-primary">
+              <div className="group/sub flex items-center justify-between text-xs rounded-lg hover:text-primary">
                 <div className={`flex-1 flex items-center gap-2.5 px-3 py-1.5 cursor-pointer ${location.pathname.startsWith("/approval") ? "text-primary font-bold" : "text-sidebar-foreground/70"}`} onClick={() => navigate("/approval/pending")}>
                    <GitBranch size={14} /> Persetujuan
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); setApprovalSubOpen(!approvalSubOpen); }} className="p-1 rounded hover:bg-sidebar-accent/50 text-sidebar-foreground/50 opacity-0 group-hover/sub:opacity-100 transition-opacity">
+                <button onClick={(e) => { e.stopPropagation(); setApprovalSubOpen(!approvalSubOpen); }} className="p-1 rounded hover:bg-sidebar-accent/50 text-sidebar-foreground/50 opacity-0 group-hover/sub:opacity-100">
                   <ChevronDown size={12} className={approvalSubOpen ? "rotate-180" : ""} />
                 </button>
               </div>
@@ -233,9 +232,6 @@ export default function AppSidebar() {
 
         <div className="!my-4 mx-2 h-px bg-sidebar-border" />
         
-        {/* ======================================================== */}
-        {/* MENU SAMPAH ADA DI SINI. TEPAT DI ATAS PENGATURAN!       */}
-        {/* ======================================================== */}
         <NavButton active={location.pathname === "/trash"} icon={Trash2} label="Sampah" onClick={() => navigate("/trash")} />
         
         <NavButton active={location.pathname === "/settings"} icon={Settings} label="Pengaturan" onClick={() => navigate("/settings")} />

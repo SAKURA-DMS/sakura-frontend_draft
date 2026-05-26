@@ -308,7 +308,7 @@ export default function AppSidebar() {
         <div className="!my-4 mx-2 h-px bg-sidebar-border" />
 
         {/* ========================================= */}
-        {/* TAMBAHAN MENU SAMPAH                      */}
+        {/* MENU SAMPAH                               */}
         {/* ========================================= */}
         <NavButton active={location.pathname === "/trash"} icon={Trash2} label="Sampah" onClick={() => navigate("/trash")} />
 
