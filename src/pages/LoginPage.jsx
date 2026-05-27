@@ -1,20 +1,36 @@
-﻿import { useState, useEffect, useMemo } from "react";
+﻿import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, Shield, FileCheck, Users, ScanLine } from "lucide-react";
+import {
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  ArrowLeft,
+  Shield,
+  FileCheck,
+  Users,
+  ScanLine,
+  RefreshCw,
+  CheckCircle,
+  KeyRound,
+} from "lucide-react";
 import logoSakura from "@/assets/logo_sakura.png";
 import SakuraPetals from "@/components/sakura/SakuraPetals";
-import sakuraBg from "@/assets/sakura_branch.png"; 
+import sakuraBg from "@/assets/sakura_branch.png";
 
-/* ── Floating orbs on left panel ── */
+/* ── Floating orbs ── */
 function FloatingOrbs() {
-  const orbs = useMemo(() => [
-    { w: 320, h: 320, x: "80%", y: "-10%", delay: 0, dur: 18 },
-    { w: 220, h: 220, x: "-8%", y: "75%", delay: 2, dur: 22 },
-    { w: 160, h: 160, x: "60%", y: "60%", delay: 4, dur: 15 },
-    { w: 100, h: 100, x: "30%", y: "20%", delay: 1, dur: 20 },
-  ], []);
-
+  const orbs = useMemo(
+    () => [
+      { w: 320, h: 320, x: "80%", y: "-10%", delay: 0, dur: 18 },
+      { w: 220, h: 220, x: "-8%", y: "75%", delay: 2, dur: 22 },
+      { w: 160, h: 160, x: "60%", y: "60%", delay: 4, dur: 15 },
+      { w: 100, h: 100, x: "30%", y: "20%", delay: 1, dur: 20 },
+    ],
+    []
+  );
   return (
     <>
       {orbs.map((o, i) => (
@@ -28,7 +44,7 @@ function FloatingOrbs() {
   );
 }
 
-/* ── Animated feature cards on left panel ── */
+/* ── Animated feature cards ── */
 const FEATURES = [
   { icon: FileCheck, title: "Arsip Digital", desc: "Simpan dokumen secara aman" },
   { icon: Shield, title: "Alur Persetujuan", desc: "Proses transparan dan akuntabel" },
@@ -38,12 +54,10 @@ const FEATURES = [
 
 function FeatureCards() {
   const [activeIdx, setActiveIdx] = useState(0);
-
   useEffect(() => {
-    const t = setInterval(() => setActiveIdx(p => (p + 1) % FEATURES.length), 3000);
+    const t = setInterval(() => setActiveIdx((p) => (p + 1) % FEATURES.length), 3000);
     return () => clearInterval(t);
   }, []);
-
   return (
     <div className="mt-10 space-y-2">
       {FEATURES.map((f, i) => {
@@ -60,20 +74,17 @@ function FeatureCards() {
             }}
             onMouseEnter={() => setActiveIdx(i)}
           >
-            <div style={{ transform: isActive ? "rotate(360deg) scale(1.2)" : "rotate(0) scale(1)" }}>
-              <Icon size={16} className="text-white/80" />
-            </div>
+            <Icon size={16} className="text-white/80" />
             <div className="flex-1 min-w-0">
               <span className="text-white font-semibold text-sm">{f.title}</span>
               {isActive && (
-                <span className="text-white/60 text-sm inline-block overflow-hidden whitespace-nowrap">
-                  {" · "}{f.desc}
+                <span className="text-white/60 text-sm inline-block whitespace-nowrap">
+                  {" · "}
+                  {f.desc}
                 </span>
               )}
             </div>
-            {isActive && (
-              <div className="w-1.5 h-6 rounded-full bg-white/40" />
-            )}
+            {isActive && <div className="w-1.5 h-6 rounded-full bg-white/40" />}
           </div>
         );
       })}
@@ -81,11 +92,10 @@ function FeatureCards() {
   );
 }
 
-/* ── Animated input field ── */
+/* ── Animated input ── */
 function AnimatedInput({ icon: Icon, label, type = "text", value, onChange, placeholder, suffix }) {
   const [focused, setFocused] = useState(false);
   const filled = value.length > 0;
-
   return (
     <div style={{ transform: focused ? "scale(1.01)" : "scale(1)" }} className="transition-transform">
       <label
@@ -122,7 +132,6 @@ function AnimatedInput({ icon: Icon, label, type = "text", value, onChange, plac
           className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all"
         />
         {suffix}
-        {/* Animated underline */}
         <div
           className="absolute bottom-0 left-1/2 h-[2px] rounded-full bg-primary transition-all"
           style={{
@@ -136,18 +145,16 @@ function AnimatedInput({ icon: Icon, label, type = "text", value, onChange, plac
   );
 }
 
-/* ── Typing animation for heading ── */
+/* ── Typing heading ── */
 function TypedHeading() {
   const text = "Masuk ke Sistem";
   const [chars, setChars] = useState(0);
-
   useEffect(() => {
     if (chars < text.length) {
-      const t = setTimeout(() => setChars(c => c + 1), 60);
+      const t = setTimeout(() => setChars((c) => c + 1), 60);
       return () => clearTimeout(t);
     }
   }, [chars, text.length]);
-
   return (
     <h2 className="text-2xl font-bold text-foreground mb-1">
       {text.slice(0, chars)}
@@ -156,7 +163,336 @@ function TypedHeading() {
   );
 }
 
-/* ── Main login page ── */
+/* ── Countdown for OTP resend ── */
+function OtpCountdown({ onResend }) {
+  const [sec, setSec] = useState(45);
+  const [canResend, setCanResend] = useState(false);
+
+  useEffect(() => {
+    if (sec <= 0) { setCanResend(true); return; }
+    const t = setTimeout(() => setSec((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [sec]);
+
+  return (
+    <div className="text-center">
+      {canResend ? (
+        <button
+          onClick={() => { setSec(45); setCanResend(false); onResend(); }}
+          className="flex items-center gap-1.5 text-xs font-medium mx-auto hover:underline"
+          style={{ color: "hsl(347 45% 38%)" }}
+        >
+          <RefreshCw size={12} /> Kirim ulang kode OTP
+        </button>
+      ) : (
+        <span className="text-xs text-muted-foreground">
+          Kirim ulang kode dalam{" "}
+          <span className="font-semibold text-foreground">00:{String(sec).padStart(2, "0")}</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════
+   2FA VERIFICATION SCREEN — full split-panel layout
+   ════════════════════════════════════════════════════ */
+function TwoFAScreen({ email, onVerify, onBack, isSending, isSubmitting }) {
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [otpSent, setOtpSent] = useState(false);
+  const [error, setError] = useState("");
+  const inputRefs = useRef([]);
+
+  const handleChange = (val, idx) => {
+    const digit = val.replace(/\D/g, "").slice(-1);
+    const next = [...otp];
+    next[idx] = digit;
+    setOtp(next);
+    setError("");
+    if (digit && idx < 5) inputRefs.current[idx + 1]?.focus();
+  };
+
+  const handleKeyDown = (e, idx) => {
+    if (e.key === "Backspace" && !otp[idx] && idx > 0) {
+      inputRefs.current[idx - 1]?.focus();
+    }
+  };
+
+  const handlePaste = (e) => {
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (pasted.length === 6) {
+      setOtp(pasted.split(""));
+      inputRefs.current[5]?.focus();
+    }
+    e.preventDefault();
+  };
+
+  const handleSend = () => {
+    setOtpSent(true);
+    isSending?.();
+  };
+
+  const handleVerify = () => {
+    const code = otp.join("");
+    if (code.length < 6) {
+      setError("Masukkan 6 digit kode OTP yang dikirim ke email Anda.");
+      return;
+    }
+    onVerify(code);
+  };
+
+  const filled = otp.filter(Boolean).length;
+
+  return (
+    <div className="min-h-screen flex flex-col lg:flex-row overflow-hidden">
+      {/* ── Left panel ── */}
+      <div className="hidden lg:flex flex-col justify-center w-5/12 relative overflow-hidden">
+        {/* Base color */}
+        <div className="absolute inset-0" style={{ background: "hsl(340 73% 35%)" }} />
+        {/* Sakura branch */}
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${sakuraBg})`, opacity: 0.3 }}
+        />
+        {/* Gradient overlay */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(135deg, hsl(340 60% 28% / 0.85) 0%, hsl(340 50% 20% / 0.95) 100%)",
+          }}
+        />
+        <SakuraPetals count={10} />
+        <FloatingOrbs />
+
+        <div className="relative px-12 py-16 z-10">
+          <button onClick={onBack} className="flex items-center gap-2.5 mb-12 group">
+            <div className="w-12 h-12 rounded-xl bg-white shadow-lg ring-2 ring-white/40 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <img src={logoSakura} alt="SAKURA" className="w-10 h-10 rounded-lg" />
+            </div>
+            <div className="text-left">
+              <div className="text-white font-bold text-xl tracking-wider drop-shadow">SAKURA</div>
+              <div className="text-white/70 text-xs">Document Management System</div>
+            </div>
+          </button>
+
+          {/* Heading */}
+          <h1 className="text-4xl font-extrabold text-white leading-tight mb-3">
+            Verifikasi
+            <br />
+            Dua Langkah
+          </h1>
+          <p className="text-white/70 text-sm leading-relaxed mb-8">
+            Kode OTP telah dikirim ke email Anda untuk keamanan tambahan.
+          </p>
+
+          {/* Security card */}
+          <div
+            className="rounded-2xl border p-5 space-y-2"
+            style={{ background: "rgba(255,255,255,0.07)", borderColor: "rgba(255,255,255,0.15)" }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                <Shield size={18} className="text-white" />
+              </div>
+              <span className="text-white font-semibold text-sm">Keamanan Berlapis</span>
+            </div>
+            <p className="text-white/60 text-xs leading-relaxed pl-12">
+              Two-Factor Authentication melindungi akun Anda dari akses tidak sah, meskipun password Anda diketahui pihak lain.
+            </p>
+          </div>
+
+          {/* Step flow */}
+          <div className="mt-8 space-y-2">
+            {[
+              { label: "Masukkan Email & Password", done: true },
+              { label: "Kode OTP Dikirim ke Email", done: otpSent },
+              { label: "Masukkan Kode OTP", done: false },
+              { label: "Login Berhasil", done: false },
+            ].map((s, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div
+                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                    s.done ? "bg-white text-[hsl(340,50%,28%)]" : "bg-white/15 text-white/50"
+                  }`}
+                >
+                  {s.done ? <CheckCircle size={12} /> : i + 1}
+                </div>
+                <span className={`text-xs ${s.done ? "text-white font-medium" : "text-white/50"}`}>
+                  {s.label}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-auto text-white/40 text-[11px] pt-10 font-medium">© 2026 SAKURA · Developed by Group 5</p>
+        </div>
+      </div>
+
+      {/* ── Right panel ── */}
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 bg-background relative">
+        {/* Subtle background blobs */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div
+            className="absolute w-[500px] h-[500px] rounded-full opacity-[0.03]"
+            style={{
+              background: "radial-gradient(circle, hsl(347 55% 49%), transparent 70%)",
+              right: "-100px",
+              top: "-100px",
+            }}
+          />
+        </div>
+
+        <div className="w-full max-w-md relative z-10">
+          {/* Mobile logo */}
+          <button onClick={onBack} className="lg:hidden flex items-center gap-3 mb-8">
+            <div className="w-12 h-12 rounded-xl bg-white shadow-md ring-1 ring-primary/20 flex items-center justify-center">
+              <img src={logoSakura} alt="SAKURA" className="w-10 h-10 rounded-lg" />
+            </div>
+            <span className="text-xl font-bold tracking-wider" style={{ color: "hsl(347 45% 38%)" }}>
+              SAKURA
+            </span>
+          </button>
+
+          {/* Back link */}
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1.5 text-sm font-medium mb-6 hover:underline transition-colors"
+            style={{ color: "hsl(347 45% 38%)" }}
+          >
+            <ArrowLeft size={15} /> Kembali ke Login
+          </button>
+
+          {/* Header */}
+          <div className="mb-7">
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ background: "hsl(347 55% 49% / 0.1)" }}>
+              <Mail size={26} style={{ color: "hsl(347 55% 42%)" }} />
+            </div>
+            <h2 className="text-2xl font-bold text-foreground">Masukkan Kode OTP</h2>
+            <p className="text-sm text-muted-foreground mt-1.5">
+              Kode verifikasi 6 digit telah dikirim ke
+            </p>
+            <p className="text-sm font-semibold mt-0.5" style={{ color: "hsl(347 45% 38%)" }}>
+              {email}
+            </p>
+          </div>
+
+          {!otpSent ? (
+            /* ── Send OTP step ── */
+            <div className="space-y-4">
+              <div
+                className="p-4 rounded-2xl border"
+                style={{ background: "hsl(347 55% 49% / 0.04)", borderColor: "hsl(347 55% 49% / 0.2)" }}
+              >
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Klik tombol di bawah untuk mengirim kode OTP ke email Anda. Periksa inbox dan masukkan kode 6 digit yang kami kirimkan.
+                </p>
+              </div>
+              <button
+                onClick={handleSend}
+                className="w-full py-3 rounded-xl font-semibold text-white flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                style={{ background: "hsl(347 55% 42%)" }}
+              >
+                <Mail size={16} /> Kirim OTP ke Email
+              </button>
+            </div>
+          ) : (
+            /* ── OTP input step ── */
+            <div className="space-y-5">
+              {/* 6 individual boxes */}
+              <div>
+                <div className="flex gap-2.5 justify-center" onPaste={handlePaste}>
+                  {otp.map((digit, i) => (
+                    <input
+                      key={i}
+                      ref={(el) => (inputRefs.current[i] = el)}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleChange(e.target.value, i)}
+                      onKeyDown={(e) => handleKeyDown(e, i)}
+                      className={`w-12 h-14 text-center text-2xl font-bold rounded-2xl border-2 bg-background focus:outline-none transition-all ${
+                        digit
+                          ? "border-primary text-foreground shadow-[0_0_0_4px_hsl(347_55%_49%/0.1)]"
+                          : "border-input focus:border-primary focus:shadow-[0_0_0_4px_hsl(347_55%_49%/0.1)]"
+                      }`}
+                      autoFocus={i === 0}
+                    />
+                  ))}
+                </div>
+
+                {/* Progress bar */}
+                <div className="mt-3 h-1 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{
+                      width: `${(filled / 6) * 100}%`,
+                      background: "hsl(347 55% 42%)",
+                    }}
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <p className="text-sm text-destructive font-medium text-center">{error}</p>
+              )}
+
+              <OtpCountdown onResend={handleSend} />
+
+              {/* Reset password link */}
+              <div className="text-center">
+                <span className="text-xs text-muted-foreground">Lupa kata sandi? </span>
+                <button
+                  className="text-xs font-semibold hover:underline"
+                  style={{ color: "hsl(347 45% 38%)" }}
+                  onClick={() => alert("Simulasi: Link reset dikirim ke email")}
+                >
+                  Reset via email
+                </button>
+              </div>
+
+              <button
+                onClick={handleVerify}
+                disabled={filled < 6 || isSubmitting}
+                className="w-full py-3 rounded-xl font-semibold text-white flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                style={{ background: "hsl(347 55% 42%)" }}
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Memverifikasi...
+                  </>
+                ) : (
+                  <>
+                    <KeyRound size={16} />
+                    Verifikasi & Masuk
+                  </>
+                )}
+              </button>
+
+              {/* Demo hint */}
+              <p className="text-center text-[11px] text-muted-foreground/60 border border-dashed border-border rounded-xl py-2">
+                Demo: Gunakan kode <span className="font-mono font-bold text-foreground/60">123456</span> untuk verifikasi
+              </p>
+            </div>
+          )}
+
+          <div className="mt-8">
+            <div className="border-t border-border/50" />
+            <p className="text-center text-[11px] text-muted-foreground/60 py-4 font-medium">
+              © 2026 SAKURA · SMP Negeri 4 Cikarang Barat
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════
+   MAIN LOGIN PAGE
+   ════════════════════════════════════════════════════ */
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -164,9 +500,6 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [otpStep, setOtpStep] = useState(false);
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpInfo, setOtpInfo] = useState("");
   const [pendingUser, setPendingUser] = useState(null);
   const { login, users } = useApp();
   const navigate = useNavigate();
@@ -175,7 +508,7 @@ export default function LoginPage() {
     e.preventDefault();
     if (!email) { setError("Masukkan email terlebih dahulu."); return; }
     setIsSubmitting(true);
-    await new Promise(r => setTimeout(r, 400));
+    await new Promise((r) => setTimeout(r, 400));
     const user = users.find((u) => u.email === email);
     setIsSubmitting(false);
     if (!user) { setError("Email tidak ditemukan."); return; }
@@ -192,53 +525,44 @@ export default function LoginPage() {
     if (ok === true) navigate("/dashboard");
   };
 
-  const sendOtp = () => {
-    setOtpSent(true);
-    setOtpInfo(`Kode OTP telah dikirim ke ${pendingUser?.email}. Periksa email Anda.`);
-    setTimeout(() => setOtpInfo(""), 4000);
-  };
-
-  const verifyOtp = async () => {
-    if (!/^\d{6}$/.test(otp)) {
-      setError("Masukkan 6 digit kode OTP yang dikirim ke email Anda.");
-      return;
-    }
+  const handleVerifyOtp = async (code) => {
+    if (!/^\d{6}$/.test(code)) return;
     setIsSubmitting(true);
-    await new Promise(r => setTimeout(r, 400));
+    await new Promise((r) => setTimeout(r, 500));
     const ok = login(email);
     setIsSubmitting(false);
     if (ok === true) navigate("/dashboard");
   };
 
+  /* ── Show 2FA screen as full-page replacement ── */
+  if (otpStep && pendingUser) {
+    return (
+      <TwoFAScreen
+        email={pendingUser.email}
+        onVerify={handleVerifyOtp}
+        onBack={() => { setOtpStep(false); setPendingUser(null); }}
+        isSubmitting={isSubmitting}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row overflow-hidden">
       {/* ── Left panel ── */}
       <div className="hidden lg:flex flex-col justify-center w-1/2 relative overflow-hidden">
-
-        {/* 🌸 Base pink background */}
-        <div
-          className="absolute inset-0"
-          style={{ background: "hsl(340 73% 65%)" }}
-        />
-
-        {/* 🌸 Sakura branch image */}
+        <div className="absolute inset-0" style={{ background: "hsl(340 73% 65%)" }} />
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: `url(${sakuraBg})`, opacity: 0.55 }}
         />
-
-        {/* 🌸 Dark gradient overlay dari atas ke bawah agar teks putih terbaca */}
         <div
           className="absolute inset-0"
           style={{
-            background: "linear-gradient(to bottom, hsl(340 60% 30% / 0.45) 0%, hsl(340 55% 25% / 0.70) 60%, hsl(340 50% 20% / 0.85) 100%)",
+            background:
+              "linear-gradient(to bottom, hsl(340 60% 30% / 0.45) 0%, hsl(340 55% 25% / 0.70) 60%, hsl(340 50% 20% / 0.85) 100%)",
           }}
         />
-
-        {/* 🌸 Petals */}
         <SakuraPetals count={16} />
-
         <FloatingOrbs />
 
         <div className="relative px-12 py-16 z-10">
@@ -252,11 +576,14 @@ export default function LoginPage() {
                 <div className="text-white/80 text-xs font-medium">Document Management System</div>
               </div>
             </button>
-
           </div>
 
           <h1 className="text-4xl font-extrabold text-white leading-[1.15] mb-4">
-            Secure Archiving and<br />Keeping of Unified<br />Records for Administration
+            Secure Archiving and
+            <br />
+            Keeping of Unified
+            <br />
+            Records for Administration
           </h1>
 
           <p className="text-white/80 text-base leading-relaxed max-w-lg">
@@ -273,40 +600,35 @@ export default function LoginPage() {
 
       {/* ── Right panel ── */}
       <div className="flex-1 flex items-center justify-center px-4 sm:px-6 bg-background relative">
-        {/* Subtle background pattern */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div
             className="absolute w-[500px] h-[500px] rounded-full opacity-[0.03]"
-            style={{ background: "radial-gradient(circle, hsl(347 55% 49%), transparent 70%)", right: "-100px", top: "-100px" }}
-          />
-          <div
-            className="absolute w-[400px] h-[400px] rounded-full opacity-[0.02]"
-            style={{ background: "radial-gradient(circle, hsl(347 55% 49%), transparent 70%)", left: "-80px", bottom: "-80px" }}
+            style={{
+              background: "radial-gradient(circle, hsl(347 55% 49%), transparent 70%)",
+              right: "-100px",
+              top: "-100px",
+            }}
           />
         </div>
 
         <div className="w-full max-w-md relative z-10">
           {/* Mobile logo */}
-          <button
-            onClick={() => navigate("/")}
-            className="lg:hidden flex items-center gap-3 mb-8"
-          >
+          <button onClick={() => navigate("/")} className="lg:hidden flex items-center gap-3 mb-8">
             <div className="w-12 h-12 rounded-xl bg-white shadow-md ring-1 ring-primary/20 flex items-center justify-center">
               <img src={logoSakura} alt="SAKURA" className="w-10 h-10 rounded-lg" />
             </div>
-            <span className="text-xl font-bold tracking-wider" style={{ color: "hsl(347 45% 38%)" }}>SAKURA</span>
+            <span className="text-xl font-bold tracking-wider" style={{ color: "hsl(347 45% 38%)" }}>
+              SAKURA
+            </span>
           </button>
 
-
-          {/* Kembali ke Home */}
           <div className="mb-6">
             <button
               onClick={() => navigate(-1)}
               className="flex items-center gap-1.5 text-sm font-medium hover:underline transition-colors"
               style={{ color: "hsl(347 45% 38%)" }}
             >
-              <ArrowLeft size={15} />
-              Kembali
+              <ArrowLeft size={15} /> Kembali
             </button>
           </div>
 
@@ -316,38 +638,32 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
-            <div>
-              <AnimatedInput
-                icon={Mail}
-                label="Email"
-                type="email"
-                value={email}
-                onChange={(e) => { setEmail(e.target.value); setError(""); }}
-                placeholder="nama@sakura.sch.id"
-              />
-            </div>
+            <AnimatedInput
+              icon={Mail}
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); setError(""); }}
+              placeholder="nama@sakura.sch.id"
+            />
 
-            <div>
-              <AnimatedInput
-                icon={Lock}
-                label="Kata Sandi"
-                type={showPass ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                suffix={
-                  <button
-                    type="button"
-                    onClick={() => setShowPass(!showPass)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors z-10"
-                  >
-                    <div key={showPass ? "hide" : "show"}>
-                      {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </div>
-                  </button>
-                }
-              />
-            </div>
+            <AnimatedInput
+              icon={Lock}
+              label="Kata Sandi"
+              type={showPass ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              suffix={
+                <button
+                  type="button"
+                  onClick={() => setShowPass(!showPass)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors z-10"
+                >
+                  {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              }
+            />
 
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -356,109 +672,54 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => alert("Simulasi: Link reset password dikirim ke email")}
-                className="text-sm font-semibold hover:underline" style={{ color: "hsl(347 45% 38%)" }}
+                className="text-sm font-semibold hover:underline"
+                style={{ color: "hsl(347 45% 38%)" }}
               >
                 Lupa password?
               </button>
             </div>
 
-            {error && (
-              <p className="text-sm text-destructive font-medium overflow-hidden">
-                {error}
-              </p>
-            )}
+            {error && <p className="text-sm text-destructive font-medium">{error}</p>}
 
-            <div>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="group w-full py-2.5 rounded-xl font-semibold transition-all hover:scale-102 active:scale-97 flex items-center justify-center gap-2 disabled:opacity-70 relative overflow-hidden text-white"
-                style={{ background: "hsl(347 55% 42%)" }}
-              >
-                <div className="flex items-center gap-2 relative z-10">
-                  {isSubmitting ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Memproses...
-                    </>
-                  ) : (
-                    <>
-                      Masuk ke Sistem
-                      <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-                    </>
-                  )}
-                </div>
-              </button>
-            </div>
-          </form>
-
-          {otpStep && (
-            <div className="mt-6 p-4 rounded-2xl border border-primary/30 bg-primary/[0.04] space-y-3">
-              <div className="flex items-center gap-2">
-                <Shield size={16} className="text-primary" />
-                <p className="text-sm font-semibold text-foreground">Verifikasi 2 Langkah</p>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Akun ini dilindungi verifikasi tambahan. Kirim kode OTP ke email Anda
-                untuk melanjutkan masuk.
-              </p>
-              {!otpSent ? (
-                <button
-                  type="button"
-                  onClick={sendOtp}
-                  className="w-full py-2.5 rounded-xl text-white text-sm font-semibold"
-                  style={{ background: "hsl(347 55% 42%)" }}
-                >
-                  Kirim OTP ke Email
-                </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="group w-full py-2.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-70 text-white"
+              style={{ background: "hsl(347 55% 42%)" }}
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Memproses...
+                </>
               ) : (
                 <>
-                  {otpInfo && (
-                    <p className="text-xs text-sakura-success font-medium">{otpInfo}</p>
-                  )}
-                  <input
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={otp}
-                    onChange={(e) => { setOtp(e.target.value.replace(/\D/g, "").slice(0, 6)); setError(""); }}
-                    placeholder="6 digit kode OTP"
-                    className="w-full px-3 py-2.5 rounded-xl border border-input bg-background text-sm tracking-[0.4em] text-center focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={sendOtp}
-                      className="px-3 py-2 rounded-xl border border-input text-xs font-medium hover:bg-muted"
-                    >
-                      Kirim ulang
-                    </button>
-                    <button
-                      type="button"
-                      onClick={verifyOtp}
-                      disabled={isSubmitting}
-                      className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold disabled:opacity-60"
-                      style={{ background: "hsl(347 55% 42%)" }}
-                    >
-                      {isSubmitting ? "Memverifikasi..." : "Verifikasi & Masuk"}
-                    </button>
-                  </div>
+                  Masuk ke Sistem
+                  <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
                 </>
               )}
-            </div>
-          )}
-
-
+            </button>
+          </form>
 
           <p className="text-center text-sm text-muted-foreground mt-5">
             Belum punya akun?{" "}
-            <button onClick={() => navigate("/signup")} className="font-semibold hover:underline" style={{ color: "hsl(347 45% 38%)" }}>Daftar di sini</button>
+            <button
+              onClick={() => navigate("/signup")}
+              className="font-semibold hover:underline"
+              style={{ color: "hsl(347 45% 38%)" }}
+            >
+              Daftar di sini
+            </button>
           </p>
 
-
           <div>
-            <p className="text-center text-[11px] text-muted-foreground/60 mt-6 font-medium">SMP Negeri 4 Cikarang Barat</p>
+            <p className="text-center text-[11px] text-muted-foreground/60 mt-6 font-medium">
+              SMP Negeri 4 Cikarang Barat
+            </p>
             <div className="border-t border-border/50 mt-5" />
-            <p className="text-center text-[11px] text-muted-foreground/60 py-4 font-medium">© 2026 SAKURA · Developed by Group 5</p>
+            <p className="text-center text-[11px] text-muted-foreground/60 py-4 font-medium">
+              © 2026 SAKURA · Developed by Group 5
+            </p>
           </div>
         </div>
       </div>
