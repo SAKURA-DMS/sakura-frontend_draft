@@ -1,34 +1,38 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, AlertTriangle } from "lucide-react";
-import logoSakura from "@/assets/logo_sakura.png";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Home } from "lucide-react";
+// Pastikan path ke assets Anda benar
+import heroSakura from "@/assets/hero_school.jpg"; 
 
 export default function NotFound() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6">
-      <div className="text-center max-w-md animate-fade-in">
-        <div className="w-20 h-20 rounded-2xl bg-white shadow-xl ring-1 ring-primary/20 flex items-center justify-center mx-auto mb-6">
-          <img src={logoSakura} alt="SAKURA" className="w-16 h-16 rounded-xl" />
-        </div>
-        
-        <div className="flex items-center justify-center gap-2 mb-2 text-destructive">
-          <AlertTriangle size={24} />
-          <h1 className="text-4xl font-extrabold tracking-tight">404</h1>
-        </div>
-        
-        <h2 className="text-xl font-bold text-foreground mb-3">Halaman Tidak Ditemukan</h2>
-        <p className="text-muted-foreground mb-8 text-sm">
-          Maaf, halaman yang Anda tuju tidak tersedia, telah dipindahkan, atau terjadi kesalahan pada server.
+    <div className="relative min-h-screen flex flex-col items-center justify-center p-6 text-center overflow-hidden">
+      {/* Background Sakura dengan Overlay Gelap agar teks terbaca */}
+      <div 
+        className="absolute inset-0 z-0 bg-cover bg-center" 
+        style={{ backgroundImage: `url(${heroSakura})` }}
+      >
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
+      </div>
+
+      {/* Konten Utama */}
+      <div className="relative z-10 space-y-4 max-w-md">
+        <h1 className="text-9xl font-black text-white/90">404</h1>
+        <h2 className="text-2xl font-bold text-white">Halaman Tidak Ditemukan</h2>
+        <p className="text-white/70">
+          Sepertinya halaman yang Anda cari telah dipindahkan atau tidak pernah ada.
         </p>
         
-        <button
-          onClick={() => navigate(-1)}
-          className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:opacity-90 transition-opacity"
-        >
-          <ArrowLeft size={18} />
-          Kembali ke Halaman Sebelumnya
-        </button>
+        <div className="flex gap-3 justify-center pt-4">
+          <Button variant="secondary" onClick={() => navigate(-1)} className="gap-2">
+            <ArrowLeft size={16} /> Kembali
+          </Button>
+          <Button onClick={() => navigate("/dashboard")} className="gap-2">
+            <Home size={16} /> Ke Dashboard
+          </Button>
+        </div>
       </div>
     </div>
   );

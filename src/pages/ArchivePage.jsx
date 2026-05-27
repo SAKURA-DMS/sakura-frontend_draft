@@ -29,6 +29,7 @@ import {
   PanelLeftClose,
   Maximize2,
   Minimize2,
+  Menu
 } from "lucide-react";
 import {
   Tooltip,
@@ -138,6 +139,15 @@ export default function ArchivePage() {
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  // State untuk deteksi layar Mobile
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 1024);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("Semua");
   const [categoryFilter, setCategoryFilter] = useState("Semua");
@@ -168,9 +178,12 @@ export default function ArchivePage() {
   const [expandedFolders, setExpandedFolders] = useState(new Set());
   const [showFavorites, setShowFavorites] = useState(false);
   const [previewDoc, setPreviewDoc] = useState(null);
-  const [previewMode, setPreviewMode] = useState("inline"); // inline | sidebar | popup
+  const [previewMode, setPreviewMode] = useState("inline");
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
+  
+  // State untuk modal folder di HP
+  const [showMobileFolderDialog, setShowMobileFolderDialog] = useState(false);
 
   const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
   const [createFolderParent, setCreateFolderParent] = useState(null);
@@ -532,7 +545,7 @@ export default function ArchivePage() {
             : "h-full overflow-y-auto bg-card"
         }
       >
-        <div className={isInline ? "px-5 py-4 space-y-4" : "p-5 space-y-5"}>
+        <div className={isInline ? "px-5 py-4 space-y-4" : "p-4 lg:p-5 space-y-5"}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <h3
@@ -542,7 +555,7 @@ export default function ArchivePage() {
               >
                 {doc.judul}
               </h3>
-              <p className="text-sm text-muted-foreground mt-0.5">
+              <p className="text-sm text-muted-foreground mt-0.5 truncate">
                 {doc.nomorDokumen}
               </p>
             </div>
@@ -582,7 +595,7 @@ export default function ArchivePage() {
             {doc.status}
           </span>
 
-          <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <div>
               <div className="text-muted-foreground text-xs">Kategori</div>
               <div className="font-medium text-foreground">{doc.kategori}</div>
@@ -638,18 +651,18 @@ export default function ArchivePage() {
           <div className="flex gap-2">
             <button
               onClick={() => setDetailDoc(doc)}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-none"
             >
               <FileIcon size={16} /> Lihat Detail Lengkap
             </button>
           </div>
 
           {isAdmin && (
-            <div className="flex gap-2 pt-1">
+            <div className="flex flex-wrap sm:flex-nowrap gap-2 pt-1">
               <Button
                 variant="outline"
                 size="sm"
-                className="flex-1"
+                className="flex-1 w-full sm:w-auto"
                 onClick={() => openEditDoc(doc)}
               >
                 Edit
@@ -657,15 +670,15 @@ export default function ArchivePage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="flex-1"
+                className="flex-1 w-full sm:w-auto"
                 onClick={() => openMoveDoc(doc)}
               >
-                <ArrowRightLeft size={14} className="mr-1.5" /> Pindahkan
+                <ArrowRightLeft size={14} className="mr-1.5" /> Pindah
               </Button>
               <Button
                 variant="destructive"
                 size="sm"
-                className="flex-1"
+                className="flex-1 w-full sm:w-auto"
                 onClick={() => openDeleteDoc(doc)}
               >
                 <Trash2 size={14} className="mr-1.5" /> Hapus
@@ -708,7 +721,7 @@ export default function ArchivePage() {
     );
   };
 
-  const renderFolder = (folder, depth = 0) => {
+  const renderFolder = (folder, depth = 0, isMobileView = false) => {
     const isExpanded = expandedFolders.has(folder.path);
     const hasChildren = folder.children.length > 0;
     const isSelected = selectedFolder === folder.path;
@@ -727,6 +740,8 @@ export default function ArchivePage() {
               setShowFavorites(false);
               setPreviewDoc(null);
               setPreviewMode("inline");
+              // Jika ditekan dari modal HP, tutup modalnya
+              if (isMobileView) setShowMobileFolderDialog(false);
             }}
             className={`flex items-center gap-2 flex-1 min-w-0 px-3 py-2 rounded-xl text-sm border transition-none ${
               isSelected
@@ -755,7 +770,7 @@ export default function ArchivePage() {
             {hasChildren && (
               <ChevronDown
                 size={13}
-                className={`shrink-0 transition-transform duration-300 ${
+                className={`shrink-0 transition-none ${
                   isExpanded
                     ? "rotate-0 text-primary"
                     : "-rotate-90 text-muted-foreground"
@@ -764,7 +779,7 @@ export default function ArchivePage() {
             )}
           </button>
 
-          {isAdmin && (
+          {isAdmin && !isMobileView && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -785,7 +800,7 @@ export default function ArchivePage() {
 
         {isExpanded && (
           <div className="mt-1">
-            {folder.children.map((child) => renderFolder(child, depth + 1))}
+            {folder.children.map((child) => renderFolder(child, depth + 1, isMobileView))}
           </div>
         )}
       </div>
@@ -794,10 +809,10 @@ export default function ArchivePage() {
 
   const gridColsClass =
     folderGridSize === "small"
-      ? "grid-cols-4 sm:grid-cols-5 md:grid-cols-6"
+      ? "grid-cols-2 sm:grid-cols-4 md:grid-cols-6"
       : folderGridSize === "large"
-      ? "grid-cols-2 sm:grid-cols-3"
-      : "grid-cols-3 sm:grid-cols-4";
+      ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3"
+      : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4";
 
   const renderDocCard = (doc, dimmed) => (
     <div
@@ -809,7 +824,7 @@ export default function ArchivePage() {
       } ${dimmed ? "opacity-50" : ""}`}
     >
       <div
-        className="flex items-center gap-4 p-4"
+        className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4"
         onClick={() => openInlinePreview(doc)}
       >
         <button
@@ -837,13 +852,13 @@ export default function ArchivePage() {
           <div className="font-semibold text-sm text-foreground truncate">
             {doc.judul}
           </div>
-          <div className="text-xs text-muted-foreground">
-            {doc.nomorDokumen} · {doc.kategori} · {doc.jenisDokumen}
+          <div className="text-xs text-muted-foreground truncate">
+            {doc.nomorDokumen} · {doc.kategori}
           </div>
         </div>
 
         <span
-          className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${
+          className={`hidden sm:inline-block text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${
             doc.status === "Disetujui"
               ? "bg-sakura-success/20 text-sakura-success"
               : doc.status === "Menunggu"
@@ -889,7 +904,8 @@ export default function ArchivePage() {
                 data: doc,
               });
             }}
-            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-muted transition-none shrink-0"
+            // Class opacity diubah agar di HP (layar sentuh tanpa hover) tetap muncul
+            className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 p-1.5 rounded-lg hover:bg-muted transition-none shrink-0"
           >
             <MoreVertical size={16} className="text-muted-foreground" />
           </button>
@@ -904,16 +920,15 @@ export default function ArchivePage() {
 
   return (
     <div onClick={handlePageClick} className="flex flex-col h-screen">
-      {/* AppHeader juga di-freeze jika mau, tapi biasanya dia mengikuti main */}
       <div className="shrink-0 z-20 sticky top-0 bg-background">
-         <AppHeader
-            title="Arsip Dokumen"
-            subtitle="SMP Negeri 4 Cikarang Barat"
-         />
+        <AppHeader
+          title="Arsip Dokumen"
+          subtitle="SMP Negeri 4 Cikarang Barat"
+        />
       </div>
 
       <div className="relative flex-1 overflow-hidden">
-        {sidebarCollapsed && (
+        {sidebarCollapsed && !isMobile && (
           <button
             onClick={() => setSidebarCollapsed(false)}
             className="
@@ -937,9 +952,9 @@ export default function ArchivePage() {
         )}
 
         <ResizablePanelGroup direction="horizontal" className="h-full overflow-hidden border-t border-border">
-          {!sidebarCollapsed && (
+          {/* FOLDER TREE DESKTOP: Disembunyikan sepenuhnya jika layar Mobile (isMobile) */}
+          {!sidebarCollapsed && !isMobile && (
             <>
-              {/* BAGIAN KIRI (STRUKTUR FOLDER) - DIBUAT FREEZE (TIDAK SCROLL) */}
               <ResizablePanel
                 defaultSize={22}
                 minSize={15}
@@ -979,8 +994,7 @@ export default function ArchivePage() {
                     </button>
                   </div>
 
-                  {/* Hanya bagian list foldernya saja yang bisa di-scroll internal */}
-                  <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-0.5">
+                  <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-0.5 min-h-0">
                     <button
                       onClick={() => {
                         setSelectedFolder(null);
@@ -1043,10 +1057,10 @@ export default function ArchivePage() {
             </>
           )}
 
-          {/* BAGIAN TENGAH (LIST DOKUMEN) - YANG BISA DIS-SCROLL KE BAWAH */}
+          {/* MAIN DOCUMENT LIST */}
           <ResizablePanel
             defaultSize={
-              sidebarCollapsed
+              sidebarCollapsed || isMobile
                 ? 100
                 : previewDoc && previewMode === "sidebar"
                 ? 48
@@ -1055,9 +1069,26 @@ export default function ArchivePage() {
             minSize={30}
             className="h-full min-h-0 overflow-hidden"
           >
-            {/* Scrollable area untuk bagian kanan */}
-            <div className="h-full overflow-y-auto p-6 lg:p-9 space-y-5">
-              {breadcrumbParts && (
+            <div className="h-full overflow-y-auto p-4 lg:p-9 space-y-5">
+              
+              {/* TOMBOL NAVIGASI FOLDER KHUSUS MOBILE */}
+              {isMobile && (
+                <div className="flex lg:hidden mb-2">
+                  <Button 
+                    variant="outline" 
+                    className="w-full flex justify-start text-muted-foreground font-normal border-border bg-card shadow-sm"
+                    onClick={() => setShowMobileFolderDialog(true)}
+                  >
+                    <Menu size={16} className="mr-2 text-foreground" />
+                    <span className="truncate flex-1 text-left text-foreground">
+                      {showFavorites ? "Dokumen Favorit" : selectedFolder ? (breadcrumbParts?.[breadcrumbParts.length - 1]?.label || "Folder") : "Semua Dokumen Arsip"}
+                    </span>
+                    <ChevronDown size={14} />
+                  </Button>
+                </div>
+              )}
+
+              {breadcrumbParts && !isMobile && (
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-2 border border-border flex-wrap">
                   <Home size={14} className="shrink-0" />
                   <ChevronRight size={12} className="shrink-0" />
@@ -1094,7 +1125,7 @@ export default function ArchivePage() {
                 </div>
               )}
 
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 hidden lg:flex">
                 <div>
                   <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
                     {showFavorites ? (
@@ -1182,8 +1213,8 @@ export default function ArchivePage() {
 
               {currentSubfolders.length > 0 && (
                 <div>
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                    Folder
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 hidden lg:block">
+                    Folder Terkait
                   </div>
                   <div className={`grid gap-2 ${gridColsClass}`}>
                     {currentSubfolders.map((subfolder) => (
@@ -1200,7 +1231,7 @@ export default function ArchivePage() {
                           setPreviewDoc(null);
                           setPreviewMode("inline");
                         }}
-                        className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-border bg-card hover:bg-muted hover:border-primary/30 transition-none group"
+                        className="flex flex-col items-center justify-center text-center gap-1.5 p-3 rounded-xl border border-border bg-card hover:bg-muted hover:border-primary/30 transition-none group"
                       >
                         <Folder
                           size={
@@ -1213,13 +1244,13 @@ export default function ArchivePage() {
                           className="text-sakura-warning group-hover:text-primary transition-none"
                         />
                         <span
-                          className={`text-center font-medium text-foreground leading-tight ${
+                          className={`font-medium text-foreground leading-tight line-clamp-2 ${
                             folderGridSize === "small" ? "text-[10px]" : "text-xs"
                           }`}
                         >
                           {subfolder.name}
                         </span>
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-[10px] text-muted-foreground hidden sm:block">
                           {countDocsInFolder(subfolder.path)} dok
                         </span>
                       </button>
@@ -1228,8 +1259,9 @@ export default function ArchivePage() {
                 </div>
               )}
 
-              <div className="flex flex-wrap items-center gap-3 bg-card p-4 rounded-xl border border-border">
-                <div className="relative flex-1 min-w-[200px]">
+              {/* FILTER BAR RESPONSIVE */}
+              <div className="grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-3 bg-card p-3 lg:p-4 rounded-xl border border-border">
+                <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
                   <Search
                     size={16}
                     className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -1237,51 +1269,58 @@ export default function ArchivePage() {
                   <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Cari nomor, judul, atau pengunggah..."
+                    placeholder="Cari nomor, judul..."
                     className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                 </div>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-3 py-2 rounded-lg border border-input bg-background text-sm"
-                >
-                  <option value="Semua">Semua Status</option>
-                  <option>Menunggu</option>
-                  <option>Disetujui</option>
-                  <option>Ditolak</option>
-                  <option>Diarsipkan</option>
-                </select>
-                <select
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="px-3 py-2 rounded-lg border border-input bg-background text-sm"
-                >
-                  <option value="Semua">Semua Kategori</option>
-                  {KATEGORI_OPTIONS.map((k) => (
-                    <option key={k}>{k}</option>
-                  ))}
-                </select>
-                <button
-                  onClick={() => {
-                    setSearch("");
-                    setStatusFilter("Semua");
-                    setCategoryFilter("Semua");
-                  }}
-                  className="flex items-center gap-1 px-3 py-2 rounded-lg border border-input text-sm hover:bg-muted transition-none"
-                >
-                  <RotateCcw size={14} /> Reset
-                </button>
-                <button
-                  onClick={() => setShowUploadModal(true)}
-                  className="flex items-center gap-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-none"
-                >
-                  <Upload size={14} /> Upload Dokumen
-                </button>
+                
+                <div className="grid grid-cols-2 sm:flex gap-3 w-full sm:w-auto">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full sm:w-auto px-3 py-2 rounded-lg border border-input bg-background text-sm truncate"
+                  >
+                    <option value="Semua">Semua Status</option>
+                    <option>Menunggu</option>
+                    <option>Disetujui</option>
+                    <option>Ditolak</option>
+                    <option>Diarsipkan</option>
+                  </select>
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="w-full sm:w-auto px-3 py-2 rounded-lg border border-input bg-background text-sm truncate"
+                  >
+                    <option value="Semua">Semua Kategori</option>
+                    {KATEGORI_OPTIONS.map((k) => (
+                      <option key={k}>{k}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 sm:flex gap-3 w-full sm:w-auto">
+                  <button
+                    onClick={() => {
+                      setSearch("");
+                      setStatusFilter("Semua");
+                      setCategoryFilter("Semua");
+                    }}
+                    className="w-full sm:w-auto flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-input text-sm hover:bg-muted transition-none"
+                  >
+                    <RotateCcw size={14} /> Reset
+                  </button>
+                  <button
+                    onClick={() => setShowUploadModal(true)}
+                    className="w-full sm:w-auto flex items-center justify-center gap-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-none truncate"
+                  >
+                    <Upload size={14} /> Upload
+                  </button>
+                </div>
+
                 {isAdmin && (
                   <button
                     onClick={() => setShowRecycleBin(true)}
-                    className="flex items-center gap-1 px-3 py-2 rounded-lg border border-input text-sm hover:bg-muted transition-none"
+                    className="w-full sm:w-auto flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-input text-sm hover:bg-muted transition-none mt-1 sm:mt-0"
                   >
                     <Trash2 size={14} /> Recycle Bin
                   </button>
@@ -1289,8 +1328,13 @@ export default function ArchivePage() {
               </div>
 
               {filtered.length > 0 && (
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Dokumen
+                <div className="flex items-center justify-between mt-6">
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Dokumen
+                  </div>
+                  <span className="text-xs text-muted-foreground lg:hidden">
+                    {filtered.length} ditemukan
+                  </span>
                 </div>
               )}
 
@@ -1311,13 +1355,13 @@ export default function ArchivePage() {
                     return (
                       <div key={section.key}>
                         <div
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg border mb-3 ${section.bgColor}`}
+                          className={`flex items-center justify-between sm:justify-start gap-2 px-3 py-2 rounded-lg border mb-3 ${section.bgColor}`}
                         >
                           <span className={`text-sm font-semibold ${section.color}`}>
                             {section.label}
                           </span>
                           <span
-                            className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${section.badgeColor}`}
+                            className={`text-xs font-medium px-2 py-0.5 rounded-full ${section.badgeColor}`}
                           >
                             {docs.length}
                           </span>
@@ -1340,8 +1384,7 @@ export default function ArchivePage() {
             </div>
           </ResizablePanel>
 
-          {/* BAGIAN KANAN (PREVIEW) */}
-          {previewDoc && previewMode === "sidebar" && (
+          {previewDoc && previewMode === "sidebar" && !isMobile && (
             <>
               <ResizableHandle />
               <ResizablePanel defaultSize={32} minSize={24} maxSize={45}>
@@ -1471,12 +1514,62 @@ export default function ArchivePage() {
         </div>
       )}
 
-      {/* Semua Modal (Dialog) ditaruh di bawah sini */}
+      {/* MODAL FOLDER UNTUK MOBILE */}
+      <Dialog open={showMobileFolderDialog} onOpenChange={setShowMobileFolderDialog}>
+        <DialogContent className="max-h-[85vh] p-0 overflow-hidden flex flex-col rounded-2xl w-[90vw]">
+          <DialogHeader className="p-4 border-b border-border shrink-0">
+            <DialogTitle>Pilih Folder Arsip</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto p-4 space-y-1">
+             <button
+                onClick={() => {
+                  setSelectedFolder(null);
+                  setShowFavorites(false);
+                  setPreviewDoc(null);
+                  setPreviewMode("inline");
+                  setShowMobileFolderDialog(false);
+                }}
+                className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-none ${
+                  !selectedFolder && !showFavorites
+                    ? "bg-primary/10 text-primary font-semibold"
+                    : "text-foreground hover:bg-muted"
+                }`}
+              >
+                📂 Semua Dokumen
+              </button>
+              <button
+                onClick={() => {
+                  setShowFavorites(true);
+                  setSelectedFolder(null);
+                  setPreviewDoc(null);
+                  setPreviewMode("inline");
+                  setShowMobileFolderDialog(false);
+                }}
+                className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-none flex items-center gap-2 ${
+                  showFavorites
+                    ? "bg-primary/10 text-primary font-semibold"
+                    : "text-foreground hover:bg-muted"
+                }`}
+              >
+                <Star size={14} className="text-sakura-warning" /> Favorit
+              </button>
+              
+              <div className="h-px bg-border my-3" />
+              <div className="text-xs font-semibold text-muted-foreground mb-2 px-2 uppercase tracking-wider">Direktori</div>
+              
+              {folderTree.map((folder) => renderFolder(folder, 0, true))}
+          </div>
+          <div className="p-3 border-t border-border shrink-0">
+            <Button variant="outline" className="w-full" onClick={() => setShowMobileFolderDialog(false)}>Tutup</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog
         open={showCreateFolderModal}
         onOpenChange={setShowCreateFolderModal}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md w-[90vw] rounded-2xl">
           <DialogHeader>
             <DialogTitle>Buat Folder Baru</DialogTitle>
             <DialogDescription>
@@ -1517,7 +1610,7 @@ export default function ArchivePage() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button
               variant="outline"
               onClick={() => setShowCreateFolderModal(false)}
@@ -1535,7 +1628,7 @@ export default function ArchivePage() {
       </Dialog>
 
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md w-[90vw] rounded-2xl">
           <DialogHeader>
             <DialogTitle>
               Edit {editTarget?.type === "folder" ? "Folder" : "Dokumen"}
@@ -1622,7 +1715,7 @@ export default function ArchivePage() {
               </div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setShowEditModal(false)}>
               Batal
             </Button>
@@ -1634,7 +1727,7 @@ export default function ArchivePage() {
       </Dialog>
 
       <Dialog open={showMoveModal} onOpenChange={setShowMoveModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md w-[90vw] rounded-2xl">
           <DialogHeader>
             <DialogTitle>Pindahkan Dokumen</DialogTitle>
             <DialogDescription>
@@ -1661,11 +1754,11 @@ export default function ArchivePage() {
                       : "text-muted-foreground"
                   }
                 />
-                {f.name}
+                <span className="truncate">{f.name}</span>
               </button>
             ))}
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setShowMoveModal(false)}>
               Batal
             </Button>
@@ -1683,7 +1776,7 @@ export default function ArchivePage() {
         open={showCreateFolderConfirm}
         onOpenChange={(v) => setShowCreateFolderConfirm(v)}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="w-[90vw] rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Konfirmasi Buat Folder</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1705,7 +1798,7 @@ export default function ArchivePage() {
         open={showMoveConfirm}
         onOpenChange={(v) => setShowMoveConfirm(v)}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="w-[90vw] rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Konfirmasi Pindahkan Dokumen</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1729,7 +1822,7 @@ export default function ArchivePage() {
           if (!v) setDeleteConfirmInput("");
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="w-[90vw] rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1770,24 +1863,24 @@ export default function ArchivePage() {
       )}
 
       {showUploadModal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-8 pb-8">
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-8 pb-8 px-4">
           <div
-            className="fixed inset-0 bg-black/50"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setShowUploadModal(false)}
           />
-          <div className="relative z-10 w-full max-w-5xl max-h-[90vh] overflow-y-auto bg-background rounded-2xl shadow-2xl border border-border p-6">
+          <div className="relative z-10 w-full max-w-5xl max-h-[90vh] overflow-y-auto bg-background rounded-2xl shadow-2xl border border-border p-4 sm:p-6">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-lg font-bold text-foreground">
                   Upload Dokumen
                 </h2>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground hidden sm:block">
                   Form upload identik dengan halaman Upload Dokumen
                 </p>
               </div>
               <button
                 onClick={() => setShowUploadModal(false)}
-                className="p-2 rounded-lg hover:bg-muted"
+                className="p-2 rounded-lg hover:bg-muted bg-muted/50"
               >
                 <X size={20} />
               </button>
@@ -1802,36 +1895,36 @@ export default function ArchivePage() {
 
       {showRecycleBin && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 backdrop-blur-sm px-4"
           onClick={() => setShowRecycleBin(false)}
         >
           <div
-            className="bg-card rounded-xl shadow-2xl w-full max-w-3xl p-6 mx-4"
+            className="bg-card rounded-2xl shadow-2xl w-full max-w-3xl p-4 sm:p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-foreground">Recycle Bin</h3>
               <button
                 onClick={() => setShowRecycleBin(false)}
-                className="p-1 rounded hover:bg-muted"
+                className="p-1 rounded-lg hover:bg-muted bg-muted/50"
               >
                 <X size={18} />
               </button>
             </div>
             <div className="space-y-3 max-h-[60vh] overflow-y-auto">
               {trashedDocuments.length === 0 && (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground text-center py-8">
                   Tidak ada dokumen di recycle bin.
                 </p>
               )}
               {trashedDocuments.map((d) => (
                 <div
                   key={d.id}
-                  className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background"
+                  className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border border-border bg-background"
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-foreground">{d.judul}</div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="font-semibold text-foreground truncate">{d.judul}</div>
+                    <div className="text-xs text-muted-foreground truncate">
                       {d.nomorDokumen} · {d.kategori}
                     </div>
                   </div>
@@ -1846,7 +1939,7 @@ export default function ArchivePage() {
                             "bg-green-600 text-white border-none shadow-2xl font-semibold",
                         });
                       }}
-                      className="px-3 py-1 rounded-lg border border-input text-sm hover:bg-green-100 hover:text-green-700 transition"
+                      className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg border border-input text-sm hover:bg-green-100 hover:text-green-700 transition-colors"
                     >
                       Restore
                     </button>
@@ -1861,9 +1954,9 @@ export default function ArchivePage() {
                             "shadow-2xl border-2 border-red-800 font-bold bg-destructive text-destructive-foreground",
                         });
                       }}
-                      className="px-3 py-1 rounded-lg bg-destructive text-destructive-foreground text-sm hover:bg-red-700 transition"
+                      className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg bg-destructive text-destructive-foreground text-sm hover:bg-red-700 transition-colors"
                     >
-                      Hapus Permanen
+                      Hapus
                     </button>
                   </div>
                 </div>
@@ -1873,13 +1966,16 @@ export default function ArchivePage() {
         </div>
       )}
 
-      {previewDoc && previewMode === "popup" && (
-        <div className="fixed inset-0 z-[999] lg:hidden">
+      {/* POPUP DETAIL DOCUMENT UNTUK HP */}
+      {previewDoc && previewMode === "popup" && isMobile && (
+        <div className="fixed inset-0 z-[100] flex flex-col justify-end">
           <div
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={closePreview}
           />
-          <div className="absolute bottom-0 left-0 right-0 bg-background rounded-t-3xl border-t border-border max-h-[88vh] overflow-y-auto">
+          <div className="relative z-10 bg-background rounded-t-3xl border-t border-border max-h-[90vh] overflow-y-auto shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
+             {/* Kapsul kecil untuk visualisasi swipe di atas popup */}
+             <div className="w-12 h-1.5 bg-muted mx-auto rounded-full mt-3 mb-1"></div>
             <PreviewDetail doc={previewDoc} variant="popup" />
           </div>
         </div>
