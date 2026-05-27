@@ -27,6 +27,8 @@ import {
   Home,
   GripVertical,
   PanelLeftClose,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import {
   Tooltip,
@@ -140,7 +142,6 @@ export default function ArchivePage() {
   const [statusFilter, setStatusFilter] = useState("Semua");
   const [categoryFilter, setCategoryFilter] = useState("Semua");
 
-  // Auto-filter from query param (kategori or folder)
   useEffect(() => {
     const kat = searchParams.get("kategori");
     if (kat && KATEGORI_OPTIONS.includes(kat)) {
@@ -167,10 +168,10 @@ export default function ArchivePage() {
   const [expandedFolders, setExpandedFolders] = useState(new Set());
   const [showFavorites, setShowFavorites] = useState(false);
   const [previewDoc, setPreviewDoc] = useState(null);
+  const [previewMode, setPreviewMode] = useState("inline"); // inline | sidebar | popup
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
 
-  // CRUD modal states
   const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
   const [createFolderParent, setCreateFolderParent] = useState(null);
   const [newFolderName, setNewFolderName] = useState("");
@@ -204,8 +205,7 @@ export default function ArchivePage() {
     return documents.filter((doc) => {
       if (currentUser.role === "Operator/TU") return true;
 
-      const isSensitive =
-        doc.category_id === 2 || doc.type_id === 12;
+      const isSensitive = doc.category_id === 2 || doc.type_id === 12;
 
       if (!isSensitive) return true;
 
@@ -222,10 +222,7 @@ export default function ArchivePage() {
     });
   }, [documents, currentUser]);
 
-  const folderTree = useMemo(
-    () => buildFolderTree(documents),
-    [documents]
-  );
+  const folderTree = useMemo(() => buildFolderTree(documents), [documents]);
 
   const toggleExpand = (path) => {
     setExpandedFolders((prev) => {
@@ -349,7 +346,31 @@ export default function ArchivePage() {
 
   const allFolders = useMemo(() => flattenTree(folderTree), [folderTree]);
 
-  // --- CRUD Handlers ---
+  const closePreview = () => {
+    setPreviewDoc(null);
+    setPreviewMode("inline");
+  };
+
+  const openInlinePreview = (doc) => {
+    setPreviewDoc(doc);
+    setPreviewMode("inline");
+  };
+
+  const openSidebarPreview = (doc) => {
+    setPreviewDoc(doc);
+    setPreviewMode("sidebar");
+  };
+
+  const openPopupPreview = (doc) => {
+    setPreviewDoc(doc);
+    setPreviewMode("popup");
+  };
+
+  const openExpandPreview = (doc) => {
+    setPreviewDoc(doc);
+    setPreviewMode(window.innerWidth >= 1024 ? "sidebar" : "popup");
+  };
+
   const handleCreateFolder = () => {
     if (!newFolderName.trim()) return;
     createFolder(
@@ -360,8 +381,7 @@ export default function ArchivePage() {
     toast({
       title: "✅ Berhasil",
       description: `Folder '${newFolderName.trim()}' berhasil dibuat`,
-      className:
-        "bg-green-600 text-white border-none shadow-2xl font-semibold",
+      className: "bg-green-600 text-white border-none shadow-2xl font-semibold",
     });
     setNewFolderName("");
     setNewFolderDesc("");
@@ -385,16 +405,15 @@ export default function ArchivePage() {
       toast({
         title: "✅ Berhasil",
         description: `Folder '${editName.trim()}' berhasil diperbarui`,
-        className:
-          "bg-green-600 text-white border-none shadow-2xl font-semibold",
+        className: "bg-green-600 text-white border-none shadow-2xl font-semibold",
       });
     } else {
       const category =
-        CATEGORIES.find((c) => c.category_id === editCategoryId)
-          ?.category_name || editTarget.data.kategori;
+        CATEGORIES.find((c) => c.category_id === editCategoryId)?.category_name ||
+        editTarget.data.kategori;
       const typeName =
-        DOCUMENT_TYPES.find((t) => t.type_id === editTypeId)
-          ?.type_name || editTarget.data.jenisDokumen;
+        DOCUMENT_TYPES.find((t) => t.type_id === editTypeId)?.type_name ||
+        editTarget.data.jenisDokumen;
 
       editDocument(editTarget.data.id, {
         judul: editName.trim(),
@@ -408,8 +427,7 @@ export default function ArchivePage() {
       toast({
         title: "✅ Berhasil",
         description: `Dokumen '${editName.trim()}' berhasil diperbarui`,
-        className:
-          "bg-green-600 text-white border-none shadow-2xl font-semibold",
+        className: "bg-green-600 text-white border-none shadow-2xl font-semibold",
       });
     }
 
@@ -429,7 +447,7 @@ export default function ArchivePage() {
       });
     } else {
       deleteDocument(deleteTarget.id);
-      if (previewDoc?.id === deleteTarget.id) setPreviewDoc(null);
+      if (previewDoc?.id === deleteTarget.id) closePreview();
       toast({
         variant: "destructive",
         title: "🗑️ Berhasil Dihapus",
@@ -449,8 +467,7 @@ export default function ArchivePage() {
     toast({
       title: "✅ Berhasil",
       description: `Dokumen '${moveTarget.judul}' berhasil dipindahkan`,
-      className:
-        "bg-green-600 text-white border-none shadow-2xl font-semibold",
+      className: "bg-green-600 text-white border-none shadow-2xl font-semibold",
     });
     setShowMoveModal(false);
     setMoveTarget(null);
@@ -501,6 +518,196 @@ export default function ArchivePage() {
     return findFolderNode(folderTree, selectedFolder);
   }, [selectedFolder, folderTree]);
 
+  const PreviewDetail = ({ doc, variant = "inline" }) => {
+    if (!doc) return null;
+
+    const isInline = variant === "inline";
+    const isSidebar = variant === "sidebar";
+
+    return (
+      <div
+        className={
+          isInline
+            ? "border-t border-border bg-muted/20"
+            : "h-full overflow-y-auto bg-card"
+        }
+      >
+        <div className={isInline ? "px-5 py-4 space-y-4" : "p-5 space-y-5"}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <h3
+                className={`font-bold text-foreground truncate ${
+                  isInline ? "text-base" : "text-lg"
+                }`}
+              >
+                {doc.judul}
+              </h3>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {doc.nomorDokumen}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-1 shrink-0">
+              {isSidebar && (
+                <button
+                  onClick={() => setPreviewMode("inline")}
+                  className="w-9 h-9 rounded-xl border border-border flex items-center justify-center hover:bg-muted"
+                  title="Kecilkan"
+                >
+                  <Minimize2 size={15} />
+                </button>
+              )}
+
+              <button
+                onClick={closePreview}
+                className="w-9 h-9 rounded-xl border border-border flex items-center justify-center hover:bg-muted"
+                title="Tutup"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+
+          <span
+            className={`inline-block text-xs font-medium px-3 py-1 rounded-full ${
+              doc.status === "Disetujui"
+                ? "bg-sakura-success/20 text-sakura-success"
+                : doc.status === "Menunggu"
+                ? "bg-sakura-warning/20 text-sakura-warning"
+                : doc.status === "Ditolak"
+                ? "bg-destructive/20 text-destructive"
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {doc.status}
+          </span>
+
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <div className="text-muted-foreground text-xs">Kategori</div>
+              <div className="font-medium text-foreground">{doc.kategori}</div>
+            </div>
+
+            <div>
+              <div className="text-muted-foreground text-xs">Jenis Dokumen</div>
+              <div className="font-medium text-foreground">{doc.jenisDokumen}</div>
+            </div>
+
+            {doc.kelas && doc.kelas !== "-" && (
+              <div>
+                <div className="text-muted-foreground text-xs">Kelas</div>
+                <div className="font-medium text-foreground">{doc.kelas}</div>
+              </div>
+            )}
+
+            {doc.namaSiswa && (
+              <div>
+                <div className="text-muted-foreground text-xs">Nama Siswa</div>
+                <div className="font-medium text-foreground">{doc.namaSiswa}</div>
+              </div>
+            )}
+
+            {doc.tahunAjaran && (
+              <div>
+                <div className="text-muted-foreground text-xs">Tahun Ajaran</div>
+                <div className="font-medium text-foreground">{doc.tahunAjaran}</div>
+              </div>
+            )}
+
+            <div>
+              <div className="text-muted-foreground text-xs">Pengunggah</div>
+              <div className="font-medium text-foreground">
+                {doc.pengunggah.nama}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-muted-foreground text-xs">Tanggal Unggah</div>
+              <div className="font-medium text-foreground">
+                {format(new Date(doc.tanggalUpload), "dd/MM/yyyy")}
+              </div>
+            </div>
+          </div>
+
+          {doc.catatan && (
+            <div className="px-3 py-2 rounded-lg bg-sakura-warning/10 border border-sakura-warning/30 text-sm text-sakura-warning font-medium">
+              ⚠ {doc.catatan}
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => setDetailDoc(doc)}
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              <FileIcon size={16} /> Lihat Detail Lengkap
+            </button>
+          </div>
+
+          {isAdmin && (
+            <div className="flex gap-2 pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => openEditDoc(doc)}
+              >
+                Edit
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => openMoveDoc(doc)}
+              >
+                <ArrowRightLeft size={14} className="mr-1.5" /> Pindahkan
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="flex-1"
+                onClick={() => openDeleteDoc(doc)}
+              >
+                <Trash2 size={14} className="mr-1.5" /> Hapus
+              </Button>
+            </div>
+          )}
+
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <Clock size={14} className="text-primary" />
+              <span className="font-semibold text-sm text-foreground">
+                Jejak Aktivitas
+              </span>
+            </div>
+            <div className="space-y-3">
+              {doc.auditTrail.slice(0, 4).map((entry, i) => (
+                <div key={i} className="flex gap-2">
+                  <img
+                    src={entry.user.avatar}
+                    alt=""
+                    className="w-7 h-7 rounded-full object-cover shrink-0 mt-0.5"
+                  />
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold text-foreground">
+                      {entry.user.nama}
+                    </div>
+                    <div className="text-xs text-foreground">
+                      {entry.action}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {format(new Date(entry.time), "dd/MM/yyyy HH:mm")}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderFolder = (folder, depth = 0) => {
     const isExpanded = expandedFolders.has(folder.path);
     const hasChildren = folder.children.length > 0;
@@ -519,8 +726,9 @@ export default function ArchivePage() {
               setSelectedFolder(folder.path);
               setShowFavorites(false);
               setPreviewDoc(null);
+              setPreviewMode("inline");
             }}
-            className={`flex items-center gap-2 flex-1 min-w-0 px-3 py-2 rounded-xl text-sm border transition-all duration-200 ${
+            className={`flex items-center gap-2 flex-1 min-w-0 px-3 py-2 rounded-xl text-sm border transition-none ${
               isSelected
                 ? "bg-primary/10 text-primary border-primary/20 shadow-sm"
                 : "border-transparent hover:bg-muted hover:border-border"
@@ -568,7 +776,7 @@ export default function ArchivePage() {
                   parentPath: folder.path,
                 });
               }}
-              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted transition-colors"
+              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted transition-none"
             >
               <MoreVertical size={14} className="text-muted-foreground" />
             </button>
@@ -594,136 +802,196 @@ export default function ArchivePage() {
   const renderDocCard = (doc, dimmed) => (
     <div
       key={doc.id}
-      className={`group flex items-center gap-4 p-4 bg-card rounded-lg border transition cursor-pointer ${
+      className={`group rounded-2xl border bg-card overflow-hidden transition-none cursor-pointer ${
         previewDoc?.id === doc.id
           ? "border-primary shadow-md"
           : "border-border hover:shadow"
       } ${dimmed ? "opacity-50" : ""}`}
-      onClick={() => setPreviewDoc(doc)}
     >
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          toggleFavorite(doc.id);
-        }}
-        className="shrink-0"
+      <div
+        className="flex items-center gap-4 p-4"
+        onClick={() => openInlinePreview(doc)}
       >
-        <Star
-          size={18}
-          className={
-            doc.favorite
-              ? "fill-sakura-warning text-sakura-warning"
-              : "text-muted-foreground hover:text-sakura-warning"
-          }
-        />
-      </button>
-
-      <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0">
-        <FileIcon size={20} className="text-primary" />
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="font-semibold text-sm text-foreground truncate">
-          {doc.judul}
-        </div>
-        <div className="text-xs text-muted-foreground">
-          {doc.nomorDokumen} · {doc.kategori} · {doc.jenisDokumen}
-        </div>
-      </div>
-
-      <span
-        className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${
-          doc.status === "Disetujui"
-            ? "bg-sakura-success/20 text-sakura-success"
-            : doc.status === "Menunggu"
-            ? "bg-sakura-warning/20 text-sakura-warning"
-            : doc.status === "Ditolak"
-            ? "bg-destructive/20 text-destructive"
-            : "bg-muted text-muted-foreground"
-        }`}
-      >
-        {doc.status}
-      </span>
-
-      {isAdmin && (
         <button
           onClick={(e) => {
             e.stopPropagation();
-            setContextMenu({
-              x: e.clientX,
-              y: e.clientY,
-              type: "file",
-              data: doc,
-            });
+            toggleFavorite(doc.id);
           }}
-          className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-muted transition-opacity shrink-0"
+          className="shrink-0"
         >
-          <MoreVertical size={16} className="text-muted-foreground" />
+          <Star
+            size={18}
+            className={
+              doc.favorite
+                ? "fill-sakura-warning text-sakura-warning"
+                : "text-muted-foreground hover:text-sakura-warning"
+            }
+          />
         </button>
+
+        <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+          <FileIcon size={20} className="text-primary" />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-sm text-foreground truncate">
+            {doc.judul}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {doc.nomorDokumen} · {doc.kategori} · {doc.jenisDokumen}
+          </div>
+        </div>
+
+        <span
+          className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${
+            doc.status === "Disetujui"
+              ? "bg-sakura-success/20 text-sakura-success"
+              : doc.status === "Menunggu"
+              ? "bg-sakura-warning/20 text-sakura-warning"
+              : doc.status === "Ditolak"
+              ? "bg-destructive/20 text-destructive"
+              : "bg-muted text-muted-foreground"
+          }`}
+        >
+          {doc.status}
+        </span>
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            openExpandPreview(doc);
+          }}
+          className="hidden lg:flex w-11 h-11 rounded-full border border-border items-center justify-center hover:bg-muted transition-none shrink-0"
+          title="Buka di samping"
+        >
+          <Maximize2 size={18} />
+        </button>
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            openPopupPreview(doc);
+          }}
+          className="flex lg:hidden w-9 h-9 rounded-xl border border-border items-center justify-center hover:bg-muted transition-none shrink-0"
+          title="Buka detail"
+        >
+          <Maximize2 size={16} />
+        </button>
+
+        {isAdmin && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setContextMenu({
+                x: e.clientX,
+                y: e.clientY,
+                type: "file",
+                data: doc,
+              });
+            }}
+            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-muted transition-none shrink-0"
+          >
+            <MoreVertical size={16} className="text-muted-foreground" />
+          </button>
+        )}
+      </div>
+
+      {previewDoc?.id === doc.id && previewMode === "inline" && (
+        <PreviewDetail doc={doc} variant="inline" />
       )}
     </div>
   );
 
   return (
-    <div onClick={handlePageClick} className="flex flex-col h-full">
-      <AppHeader
-        title="Arsip Dokumen"
-        subtitle="SMP Negeri 4 Cikarang Barat"
-      />
+    <div onClick={handlePageClick} className="flex flex-col h-screen">
+      {/* AppHeader juga di-freeze jika mau, tapi biasanya dia mengikuti main */}
+      <div className="shrink-0 z-20 sticky top-0 bg-background">
+         <AppHeader
+            title="Arsip Dokumen"
+            subtitle="SMP Negeri 4 Cikarang Barat"
+         />
+      </div>
 
-      <div className="relative flex-1 overflow-hidden animate-fade-in">
-        <ResizablePanelGroup direction="horizontal" className="h-full">
-          {/* Left - Resizable Folder Tree Panel */}
+      <div className="relative flex-1 overflow-hidden">
+        {sidebarCollapsed && (
+          <button
+            onClick={() => setSidebarCollapsed(false)}
+            className="
+              absolute
+              left-0
+              top-6
+              z-[60]
+              -translate-x-1/2
+              w-9 h-9
+              rounded-full
+              border border-border
+              bg-background
+              shadow-md
+              flex items-center justify-center
+              hover:bg-muted
+              transition-none
+            "
+          >
+            <PanelLeftClose size={15} className="rotate-180 text-muted-foreground" />
+          </button>
+        )}
+
+        <ResizablePanelGroup direction="horizontal" className="h-full overflow-hidden border-t border-border">
           {!sidebarCollapsed && (
             <>
+              {/* BAGIAN KIRI (STRUKTUR FOLDER) - DIBUAT FREEZE (TIDAK SCROLL) */}
               <ResizablePanel
                 defaultSize={22}
                 minSize={15}
                 maxSize={40}
-                className="bg-card"
+                className="bg-card flex flex-col h-full sticky top-0"
               >
                 <div className="h-full flex flex-col overflow-hidden">
-                  <div className="relative flex items-center justify-between p-3 border-b border-border bg-card z-10">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Folder size={16} className="text-sakura-warning shrink-0" />
+                  <div className="shrink-0 flex items-center justify-between p-3 border-b border-border bg-card">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Folder
+                        size={16}
+                        className="text-sakura-warning shrink-0"
+                      />
+                      <h3 className="font-bold text-foreground text-sm truncate">
+                        Struktur Folder
+                      </h3>
+                    </div>
 
-                    <h3 className="font-bold text-foreground text-sm truncate">
-                      Struktur Folder
-                    </h3>
+                    <button
+                      onClick={() => setSidebarCollapsed(true)}
+                      className="
+                        shrink-0
+                        w-8 h-8
+                        rounded-xl
+                        border border-border
+                        bg-background
+                        shadow-sm
+                        flex items-center justify-center
+                        hover:bg-muted
+                        transition-none
+                      "
+                    >
+                      <PanelLeftClose
+                        size={15}
+                        className="text-muted-foreground"
+                      />
+                    </button>
                   </div>
 
-                  <button
-                    onClick={() => setSidebarCollapsed(true)}
-                    className="
-                      shrink-0
-                      w-8 h-8
-                      rounded-xl
-                      border border-border
-                      bg-background
-                      shadow-sm
-                      flex items-center justify-center
-                      hover:bg-muted
-                      transition-all
-                    "
-                  >
-                    <PanelLeftClose
-                      size={15}
-                      className="text-muted-foreground"
-                    />
-                  </button>
-                </div>
-
+                  {/* Hanya bagian list foldernya saja yang bisa di-scroll internal */}
                   <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-0.5">
                     <button
                       onClick={() => {
                         setSelectedFolder(null);
                         setShowFavorites(false);
                         setPreviewDoc(null);
+                        setPreviewMode("inline");
                         if (expandedFolders.size === 0 && folderTree.length > 0) {
                           setExpandedFolders(new Set(folderTree.map((f) => f.path)));
                         }
                       }}
-                      className={`w-full text-left px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                      className={`w-full text-left px-3 py-1.5 rounded-md text-sm font-medium transition-none ${
                         !selectedFolder && !showFavorites
                           ? "bg-primary/10 text-primary font-semibold"
                           : "text-foreground hover:bg-muted"
@@ -737,8 +1005,9 @@ export default function ArchivePage() {
                         setShowFavorites(true);
                         setSelectedFolder(null);
                         setPreviewDoc(null);
+                        setPreviewMode("inline");
                       }}
-                      className={`w-full text-left px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
+                      className={`w-full text-left px-3 py-1.5 rounded-md text-sm font-medium transition-none flex items-center gap-2 ${
                         showFavorites
                           ? "bg-primary/10 text-primary font-semibold"
                           : "text-foreground hover:bg-muted"
@@ -755,7 +1024,7 @@ export default function ArchivePage() {
                           setNewFolderDesc("");
                           setShowCreateFolderModal(true);
                         }}
-                        className="w-full flex items-center justify-center gap-2 px-3 py-1.5 mt-1 rounded-md border border-dashed border-primary/40 text-xs font-medium text-primary hover:bg-primary/5 transition-colors"
+                        className="w-full flex items-center justify-center gap-2 px-3 py-1.5 mt-1 rounded-md border border-dashed border-primary/40 text-xs font-medium text-primary hover:bg-primary/5 transition-none"
                       >
                         <FolderPlus size={14} /> Buat Folder
                       </button>
@@ -769,43 +1038,25 @@ export default function ArchivePage() {
 
               <ResizableHandle
                 withHandle
-                className="bg-border hover:bg-primary/20 transition-colors"
+                className="bg-border hover:bg-primary/20 transition-none"
               />
             </>
           )}
 
-          {/* Center - Document list */}
+          {/* BAGIAN TENGAH (LIST DOKUMEN) - YANG BISA DIS-SCROLL KE BAWAH */}
           <ResizablePanel
-            defaultSize={sidebarCollapsed ? 100 : previewDoc ? 48 : 78}
+            defaultSize={
+              sidebarCollapsed
+                ? 100
+                : previewDoc && previewMode === "sidebar"
+                ? 48
+                : 78
+            }
             minSize={30}
+            className="h-full min-h-0 overflow-hidden"
           >
-            <div className="h-full overflow-y-auto p-9 space-y-5">
-              {sidebarCollapsed && (
-                <div className="absolute left-0 top-24 z-50">
-                  <button
-                    onClick={() => setSidebarCollapsed(false)}
-                    className="
-                      -translate-x-10/20
-                      -translate-y-20
-                      w-9 h-9
-                      rounded-full
-                      border border-border
-                      bg-background
-                      shadow-md
-                      flex items-center justify-center
-                      hover:bg-muted
-                      transition-all
-                    "
-                  >
-                    <PanelLeftClose
-                      size={15}
-                      className="rotate-180 text-muted-foreground"
-                    />
-                  </button>
-                </div>
-              )}
-
-              {/* Breadcrumb navigation */}
+            {/* Scrollable area untuk bagian kanan */}
+            <div className="h-full overflow-y-auto p-6 lg:p-9 space-y-5">
               {breadcrumbParts && (
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-2 border border-border flex-wrap">
                   <Home size={14} className="shrink-0" />
@@ -814,8 +1065,9 @@ export default function ArchivePage() {
                     onClick={() => {
                       setSelectedFolder(null);
                       setPreviewDoc(null);
+                      setPreviewMode("inline");
                     }}
-                    className="hover:text-primary transition-colors"
+                    className="hover:text-primary transition-none"
                   >
                     Arsip Dokumen
                   </button>
@@ -827,8 +1079,9 @@ export default function ArchivePage() {
                         onClick={() => {
                           setSelectedFolder(part.path);
                           setPreviewDoc(null);
+                          setPreviewMode("inline");
                         }}
-                        className={`hover:text-primary transition-colors ${
+                        className={`hover:text-primary transition-none ${
                           i === breadcrumbParts.length - 1
                             ? "font-semibold text-foreground"
                             : ""
@@ -841,13 +1094,15 @@ export default function ArchivePage() {
                 </div>
               )}
 
-              {/* Folder title + description */}
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
                     {showFavorites ? (
                       <>
-                        <Star size={20} className="text-sakura-warning fill-sakura-warning" />
+                        <Star
+                          size={20}
+                          className="text-sakura-warning fill-sakura-warning"
+                        />
                         Dokumen Favorit
                       </>
                     ) : selectedFolder ? (
@@ -925,7 +1180,6 @@ export default function ArchivePage() {
                 </div>
               </div>
 
-              {/* Subfolder cards in main area */}
               {currentSubfolders.length > 0 && (
                 <div>
                   <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
@@ -944,8 +1198,9 @@ export default function ArchivePage() {
                             toggleExpand(subfolder.path);
                           }
                           setPreviewDoc(null);
+                          setPreviewMode("inline");
                         }}
-                        className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-border bg-card hover:bg-muted hover:border-primary/30 transition-colors group"
+                        className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-border bg-card hover:bg-muted hover:border-primary/30 transition-none group"
                       >
                         <Folder
                           size={
@@ -955,7 +1210,7 @@ export default function ArchivePage() {
                               ? 40
                               : 32
                           }
-                          className="text-sakura-warning group-hover:text-primary transition-colors"
+                          className="text-sakura-warning group-hover:text-primary transition-none"
                         />
                         <span
                           className={`text-center font-medium text-foreground leading-tight ${
@@ -973,7 +1228,6 @@ export default function ArchivePage() {
                 </div>
               )}
 
-              {/* Filters */}
               <div className="flex flex-wrap items-center gap-3 bg-card p-4 rounded-xl border border-border">
                 <div className="relative flex-1 min-w-[200px]">
                   <Search
@@ -1014,34 +1268,32 @@ export default function ArchivePage() {
                     setStatusFilter("Semua");
                     setCategoryFilter("Semua");
                   }}
-                  className="flex items-center gap-1 px-3 py-2 rounded-lg border border-input text-sm hover:bg-muted transition-colors"
+                  className="flex items-center gap-1 px-3 py-2 rounded-lg border border-input text-sm hover:bg-muted transition-none"
                 >
                   <RotateCcw size={14} /> Reset
                 </button>
                 <button
                   onClick={() => setShowUploadModal(true)}
-                  className="flex items-center gap-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+                  className="flex items-center gap-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-none"
                 >
                   <Upload size={14} /> Upload Dokumen
                 </button>
                 {isAdmin && (
                   <button
                     onClick={() => setShowRecycleBin(true)}
-                    className="flex items-center gap-1 px-3 py-2 rounded-lg border border-input text-sm hover:bg-muted transition-colors"
+                    className="flex items-center gap-1 px-3 py-2 rounded-lg border border-input text-sm hover:bg-muted transition-none"
                   >
                     <Trash2 size={14} /> Recycle Bin
                   </button>
                 )}
               </div>
 
-              {/* Dokumen label */}
               {filtered.length > 0 && (
                 <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Dokumen
                 </div>
               )}
 
-              {/* Results grouped by status */}
               {statusFilter !== "Semua" ? (
                 <div className="space-y-2">
                   {filtered.map((doc) => renderDocCard(doc, false))}
@@ -1071,7 +1323,9 @@ export default function ArchivePage() {
                           </span>
                         </div>
                         <div className="space-y-2">
-                          {docs.map((doc) => renderDocCard(doc, section.opacity))}
+                          {docs.map((doc) =>
+                            renderDocCard(doc, section.opacity)
+                          )}
                         </div>
                       </div>
                     );
@@ -1086,188 +1340,28 @@ export default function ArchivePage() {
             </div>
           </ResizablePanel>
 
-          {/* Right - Detail Panel (inline, not floating) */}
-          {previewDoc && (
+          {/* BAGIAN KANAN (PREVIEW) */}
+          {previewDoc && previewMode === "sidebar" && (
             <>
               <ResizableHandle />
-              <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
-                <div className="h-full overflow-y-auto bg-card">
-                  <div className="p-5 space-y-5">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-foreground text-base">
-                          {previewDoc.judul}
-                        </h3>
-                        <p className="text-sm text-muted-foreground mt-0.5">
-                          {previewDoc.nomorDokumen}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setPreviewDoc(null)}
-                        className="p-1 rounded hover:bg-muted shrink-0"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-
-                    <span
-                      className={`inline-block text-xs font-medium px-3 py-1 rounded-full ${
-                        previewDoc.status === "Disetujui"
-                          ? "bg-sakura-success/20 text-sakura-success"
-                          : previewDoc.status === "Menunggu"
-                          ? "bg-sakura-warning/20 text-sakura-warning"
-                          : previewDoc.status === "Ditolak"
-                          ? "bg-destructive/20 text-destructive"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {previewDoc.status}
-                    </span>
-
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <div className="text-muted-foreground text-xs">Kategori</div>
-                        <div className="font-medium text-foreground">
-                          {previewDoc.kategori}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground text-xs">Jenis Dokumen</div>
-                        <div className="font-medium text-foreground">
-                          {previewDoc.jenisDokumen}
-                        </div>
-                      </div>
-                      {previewDoc.kelas && previewDoc.kelas !== "-" && (
-                        <div>
-                          <div className="text-muted-foreground text-xs">Kelas</div>
-                          <div className="font-medium text-foreground">
-                            {previewDoc.kelas}
-                          </div>
-                        </div>
-                      )}
-                      {previewDoc.namaSiswa && (
-                        <div>
-                          <div className="text-muted-foreground text-xs">Nama Siswa</div>
-                          <div className="font-medium text-foreground">
-                            {previewDoc.namaSiswa}
-                          </div>
-                        </div>
-                      )}
-                      {previewDoc.tahunAjaran && (
-                        <div>
-                          <div className="text-muted-foreground text-xs">Tahun Ajaran</div>
-                          <div className="font-medium text-foreground">
-                            {previewDoc.tahunAjaran}
-                          </div>
-                        </div>
-                      )}
-                      <div>
-                        <div className="text-muted-foreground text-xs">Pengunggah</div>
-                        <div className="font-medium text-foreground">
-                          {previewDoc.pengunggah.nama}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground text-xs">Tanggal Unggah</div>
-                        <div className="font-medium text-foreground">
-                          {format(new Date(previewDoc.tanggalUpload), "dd/MM/yyyy")}
-                        </div>
-                      </div>
-                    </div>
-
-                    {previewDoc.catatan && (
-                      <div className="px-3 py-2 rounded-lg bg-sakura-warning/10 border border-sakura-warning/30 text-sm text-sakura-warning font-medium">
-                        ⚠ {previewDoc.catatan}
-                      </div>
-                    )}
-
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setDetailDoc(previewDoc)}
-                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
-                      >
-                        <FileIcon size={16} /> Lihat Detail Lengkap
-                      </button>
-                    </div>
-
-                    {isAdmin && (
-                      <div className="flex gap-2 pt-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => openEditDoc(previewDoc)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => openMoveDoc(previewDoc)}
-                        >
-                          <ArrowRightLeft size={14} className="mr-1.5" /> Pindahkan
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => openDeleteDoc(previewDoc)}
-                        >
-                          <Trash2 size={14} className="mr-1.5" /> Hapus
-                        </Button>
-                      </div>
-                    )}
-
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <Clock size={14} className="text-primary" />
-                        <span className="font-semibold text-sm text-foreground">
-                          Jejak Aktivitas
-                        </span>
-                      </div>
-                      <div className="space-y-3">
-                        {previewDoc.auditTrail.slice(0, 4).map((entry, i) => (
-                          <div key={i} className="flex gap-2">
-                            <img
-                              src={entry.user.avatar}
-                              alt=""
-                              className="w-7 h-7 rounded-full object-cover shrink-0 mt-0.5"
-                            />
-                            <div className="min-w-0">
-                              <div className="text-xs font-semibold text-foreground">
-                                {entry.user.nama}
-                              </div>
-                              <div className="text-xs text-foreground">
-                                {entry.action}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {format(new Date(entry.time), "dd/MM/yyyy HH:mm")}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              <ResizablePanel defaultSize={32} minSize={24} maxSize={45}>
+                <PreviewDetail doc={previewDoc} variant="sidebar" />
               </ResizablePanel>
             </>
           )}
         </ResizablePanelGroup>
       </div>
 
-      {/* Context Menu (floating) */}
       {contextMenu && (
         <div
-          className="fixed z-[100] bg-popover border border-border rounded-lg shadow-lg py-1 min-w-[180px] animate-in fade-in zoom-in-95"
+          className="fixed z-[100] bg-popover border border-border rounded-lg shadow-lg py-1 min-w-[180px]"
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onClick={(e) => e.stopPropagation()}
         >
           {contextMenu.type === "folder" && (
             <>
               <button
-                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-foreground hover:bg-muted transition-none"
                 onClick={() => {
                   setCreateFolderParent(contextMenu.data.path);
                   setNewFolderName("");
@@ -1276,20 +1370,22 @@ export default function ArchivePage() {
                   setContextMenu(null);
                 }}
               >
-                <FolderPlus size={15} className="text-muted-foreground" /> Buat Sub-folder
+                <FolderPlus size={15} className="text-muted-foreground" /> Buat
+                Sub-folder
               </button>
               <button
-                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-foreground hover:bg-muted transition-none"
                 onClick={() => {
                   setShowUploadModal(true);
                   setContextMenu(null);
                 }}
               >
-                <FilePlus size={15} className="text-muted-foreground" /> Upload File
+                <FilePlus size={15} className="text-muted-foreground" /> Upload
+                File
               </button>
               <div className="border-t border-border my-1" />
               <button
-                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-foreground hover:bg-muted transition-none"
                 onClick={() => {
                   setEditTarget({
                     type: "folder",
@@ -1304,10 +1400,11 @@ export default function ArchivePage() {
                   setContextMenu(null);
                 }}
               >
-                <Pencil size={15} className="text-muted-foreground" /> Edit Folder
+                <Pencil size={15} className="text-muted-foreground" /> Edit
+                Folder
               </button>
               <button
-                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-foreground hover:bg-muted transition-none"
                 onClick={() => {
                   setMoveTarget({
                     id: contextMenu.data.folder_id || contextMenu.data.id,
@@ -1319,10 +1416,11 @@ export default function ArchivePage() {
                   setContextMenu(null);
                 }}
               >
-                <ArrowRightLeft size={15} className="text-muted-foreground" /> Pindahkan Folder
+                <ArrowRightLeft size={15} className="text-muted-foreground" />{" "}
+                Pindahkan Folder
               </button>
               <button
-                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
+                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-destructive hover:bg-destructive/10 transition-none"
                 onClick={() => {
                   setDeleteTarget({
                     type: "folder",
@@ -1337,11 +1435,10 @@ export default function ArchivePage() {
               </button>
             </>
           )}
-
           {contextMenu.type === "file" && (
             <>
               <button
-                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-foreground hover:bg-muted transition-none"
                 onClick={() => {
                   openEditDoc(contextMenu.data);
                   setContextMenu(null);
@@ -1350,17 +1447,18 @@ export default function ArchivePage() {
                 <Pencil size={15} className="text-muted-foreground" /> Edit
               </button>
               <button
-                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-foreground hover:bg-muted transition-none"
                 onClick={() => {
                   openMoveDoc(contextMenu.data);
                   setContextMenu(null);
                 }}
               >
-                <ArrowRightLeft size={15} className="text-muted-foreground" /> Pindahkan ke Folder
+                <ArrowRightLeft size={15} className="text-muted-foreground" />{" "}
+                Pindahkan ke Folder
               </button>
               <div className="border-t border-border my-1" />
               <button
-                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
+                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-destructive hover:bg-destructive/10 transition-none"
                 onClick={() => {
                   openDeleteDoc(contextMenu.data);
                   setContextMenu(null);
@@ -1373,7 +1471,7 @@ export default function ArchivePage() {
         </div>
       )}
 
-      {/* Create Folder Modal */}
+      {/* Semua Modal (Dialog) ditaruh di bawah sini */}
       <Dialog
         open={showCreateFolderModal}
         onOpenChange={setShowCreateFolderModal}
@@ -1436,7 +1534,6 @@ export default function ArchivePage() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Modal */}
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -1481,10 +1578,7 @@ export default function ArchivePage() {
                 >
                   <option value="">Pilih Kategori</option>
                   {CATEGORIES.map((c) => (
-                    <option
-                      key={c.category_id}
-                      value={c.category_id}
-                    >
+                    <option key={c.category_id} value={c.category_id}>
                       {c.category_name}
                     </option>
                   ))}
@@ -1539,7 +1633,6 @@ export default function ArchivePage() {
         </DialogContent>
       </Dialog>
 
-      {/* Move to Folder Modal */}
       <Dialog open={showMoveModal} onOpenChange={setShowMoveModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -1553,7 +1646,7 @@ export default function ArchivePage() {
               <button
                 key={f.path}
                 onClick={() => setMoveDestination(f.path)}
-                className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm transition-colors text-left ${
+                className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm transition-none text-left ${
                   moveDestination === f.path
                     ? "bg-primary/10 border border-primary text-primary font-medium"
                     : "hover:bg-muted border border-transparent"
@@ -1576,14 +1669,16 @@ export default function ArchivePage() {
             <Button variant="outline" onClick={() => setShowMoveModal(false)}>
               Batal
             </Button>
-            <Button onClick={() => setShowMoveConfirm(true)} disabled={!moveDestination}>
+            <Button
+              onClick={() => setShowMoveConfirm(true)}
+              disabled={!moveDestination}
+            >
               Pindahkan
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Create Folder Confirmation */}
       <AlertDialog
         open={showCreateFolderConfirm}
         onOpenChange={(v) => setShowCreateFolderConfirm(v)}
@@ -1593,9 +1688,7 @@ export default function ArchivePage() {
             <AlertDialogTitle>Konfirmasi Buat Folder</AlertDialogTitle>
             <AlertDialogDescription>
               Pastikan Anda ingin membuat folder baru "{newFolderName.trim()}"
-              {createFolderParent
-                ? ` di dalam folder ${createFolderParent.name}`
-                : ""}
+              {createFolderParent ? ` di dalam folder ${createFolderParent.name}` : ""}
               .
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1608,16 +1701,13 @@ export default function ArchivePage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Move Confirmation */}
       <AlertDialog
         open={showMoveConfirm}
         onOpenChange={(v) => setShowMoveConfirm(v)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              Konfirmasi Pindahkan Dokumen
-            </AlertDialogTitle>
+            <AlertDialogTitle>Konfirmasi Pindahkan Dokumen</AlertDialogTitle>
             <AlertDialogDescription>
               Dokumen "{moveTarget?.judul}" akan dipindahkan ke folder{" "}
               "{moveDestination}".
@@ -1632,7 +1722,6 @@ export default function ArchivePage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete Confirmation */}
       <AlertDialog
         open={showDeleteConfirm}
         onOpenChange={(v) => {
@@ -1741,9 +1830,7 @@ export default function ArchivePage() {
                   className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background"
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-foreground">
-                      {d.judul}
-                    </div>
+                    <div className="font-semibold text-foreground">{d.judul}</div>
                     <div className="text-xs text-muted-foreground">
                       {d.nomorDokumen} · {d.kategori}
                     </div>
@@ -1782,6 +1869,18 @@ export default function ArchivePage() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {previewDoc && previewMode === "popup" && (
+        <div className="fixed inset-0 z-[999] lg:hidden">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={closePreview}
+          />
+          <div className="absolute bottom-0 left-0 right-0 bg-background rounded-t-3xl border-t border-border max-h-[88vh] overflow-y-auto">
+            <PreviewDetail doc={previewDoc} variant="popup" />
           </div>
         </div>
       )}
