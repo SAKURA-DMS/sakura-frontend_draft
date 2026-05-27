@@ -1,9 +1,11 @@
 import { X, User as UserIcon, Mail, Shield, Building, Lock, Camera, Upload } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
 import { useRef, useState, useCallback, useEffect } from "react";
 
 export default function UserProfileModal({ user, onClose }) {
   const { updateUserAvatar, logout, currentUser } = useApp();
+  const navigate = useNavigate();
   const fileRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -29,7 +31,7 @@ export default function UserProfileModal({ user, onClose }) {
           <div className="h-px bg-border" />
           <div className="space-y-4">{[{ icon: UserIcon, label: "Nama Lengkap", value: user.nama }, { icon: Mail, label: "Email", value: user.email }, { icon: Shield, label: "Role", value: user.role }, { icon: Building, label: "Departemen", value: user.departemen }].map(({ icon: Icon, label, value }) => (<div key={label} className="flex items-center gap-3"><Icon size={18} className="text-muted-foreground shrink-0" /><div><div className="text-xs text-muted-foreground">{label}</div><div className="text-sm font-medium text-foreground">{value}</div></div></div>))}</div>
           <div className="h-px bg-border" />
-          {isOwnProfile && (<>{!showPassword ? (<button onClick={() => setShowPassword(true)} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-input text-sm hover:bg-muted transition-colors"><Lock size={16} /> Ubah Password</button>) : (<div className="space-y-3"><input type="password" placeholder="Password Lama" className="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring" /><input type="password" placeholder="Password Baru" className="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring" /><div className="flex gap-2"><button className="flex-1 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Simpan</button><button onClick={() => setShowPassword(false)} className="px-3 py-2 rounded-lg border border-input text-sm">Batal</button></div></div>)}<button onClick={() => { logout(); onClose(); }} className="w-full px-4 py-2.5 rounded-lg bg-destructive text-destructive-foreground text-sm font-semibold hover:opacity-90 transition-opacity">Keluar dari Sistem</button></>)}
+          {isOwnProfile && (<>{!showPassword ? (<button onClick={() => setShowPassword(true)} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-input text-sm hover:bg-muted transition-colors"><Lock size={16} /> Ubah Password</button>) : (<div className="space-y-3"><input type="password" placeholder="Password Lama" className="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring" /><input type="password" placeholder="Password Baru" className="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring" /><div className="flex gap-2"><button className="flex-1 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Simpan</button><button onClick={() => setShowPassword(false)} className="px-3 py-2 rounded-lg border border-input text-sm">Batal</button></div></div>)}<button onClick={() => { onClose(); logout(); navigate('/', { replace: true }); }} className="w-full px-4 py-2.5 rounded-lg bg-destructive text-destructive-foreground text-sm font-semibold hover:opacity-90 transition-opacity">Keluar dari Sistem</button></>)}
         </div>
       </div>
     </div>

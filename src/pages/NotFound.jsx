@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Home } from "lucide-react";
 // Pastikan path ke assets Anda benar
-import heroSakura from "@/assets/hero_school.jpg"; 
+import heroSakura from "@/assets/sakura_branch.png"; 
 
 export default function NotFound() {
   const navigate = useNavigate();

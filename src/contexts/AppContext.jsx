@@ -53,7 +53,7 @@ export const AppProvider = ({ children }) => {
 
   const logout = () => {
     saveSession(false, null);
-    window.location.href = "/"; 
+    // Navigation is handled by the calling component via React Router
   };
 
   // --- Folder CRUD ---
@@ -317,7 +317,13 @@ export const AppProvider = ({ children }) => {
   const setTwoFactorEnabled = (enabled) => {
     setUsers((prev) => prev.map((u) => u.id === currentUser.id ? { ...u, twoFactorEnabled: enabled } : u));
     const updatedUser = { ...currentUser, twoFactorEnabled: enabled };
-    saveSession(true, updatedUser); // Update sesi lokal juga
+    saveSession(true, updatedUser);
+    // Persist per-email so login page can check it after logout
+    if (enabled) {
+      localStorage.setItem(`sakura_2fa_${currentUser.email}`, "true");
+    } else {
+      localStorage.removeItem(`sakura_2fa_${currentUser.email}`);
+    }
   };
 
   // Derived collections

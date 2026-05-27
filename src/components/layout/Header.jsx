@@ -127,7 +127,7 @@ export default function AppHeader({ title, subtitle }) {
                 </div>
                 <div className="border-t border-border p-1">
                   <button
-                    onClick={() => { setShowDropdown(false); logout(); navigate("/login"); }}
+                    onClick={() => { setShowDropdown(false); logout(); navigate("/", { replace: true }); }}
                     className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-destructive hover:bg-destructive/5 rounded-lg transition-colors"
                   >
                     <LogOut size={16} /> Keluar

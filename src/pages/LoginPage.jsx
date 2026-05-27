@@ -100,7 +100,7 @@ function AnimatedInput({ icon: Icon, label, type = "text", value, onChange, plac
     <div style={{ transform: focused ? "scale(1.01)" : "scale(1)" }} className="transition-transform">
       <label
         className="block text-sm font-semibold mb-1.5 transition-colors"
-        style={{ color: focused ? "hsl(347 55% 49%)" : "hsl(var(--foreground))" }}
+        style={{ color: focused ? "hsl(var(--primary))" : "hsl(var(--foreground))" }}
       >
         {label}
       </label>
@@ -109,7 +109,7 @@ function AnimatedInput({ icon: Icon, label, type = "text", value, onChange, plac
           className="absolute left-3.5 top-1/2 -translate-y-1/2 z-10 transition-all"
           style={{
             transform: focused ? "scale(1.15)" : "scale(1)",
-            color: focused ? "hsl(347 55% 49%)" : "hsl(var(--muted-foreground))",
+            color: focused ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
           }}
         >
           <Icon size={18} />
@@ -118,7 +118,7 @@ function AnimatedInput({ icon: Icon, label, type = "text", value, onChange, plac
           className="absolute inset-0 rounded-xl pointer-events-none transition-shadow"
           style={{
             boxShadow: focused
-              ? "0 0 0 2px hsl(347 55% 49% / 0.25), 0 4px 16px -4px hsl(347 55% 49% / 0.15)"
+              ? "0 0 0 2px hsl(var(--ring) / 0.25), 0 4px 16px -4px hsl(var(--ring) / 0.12)"
               : "0 0 0 0px transparent",
           }}
         />
@@ -180,7 +180,7 @@ function OtpCountdown({ onResend }) {
         <button
           onClick={() => { setSec(45); setCanResend(false); onResend(); }}
           className="flex items-center gap-1.5 text-xs font-medium mx-auto hover:underline"
-          style={{ color: "hsl(347 45% 38%)" }}
+          style={{ color: "hsl(var(--primary))" }}
         >
           <RefreshCw size={12} /> Kirim ulang kode OTP
         </button>
@@ -248,7 +248,7 @@ function TwoFAScreen({ email, onVerify, onBack, isSending, isSubmitting }) {
       {/* ── Left panel ── */}
       <div className="hidden lg:flex flex-col justify-center w-5/12 relative overflow-hidden">
         {/* Base color */}
-        <div className="absolute inset-0" style={{ background: "hsl(340 73% 35%)" }} />
+        <div className="absolute inset-0" style={{ background: "hsl(347 62% 28%)" }} />
         {/* Sakura branch */}
         <div
           className="absolute inset-0 bg-cover bg-center"
@@ -259,7 +259,7 @@ function TwoFAScreen({ email, onVerify, onBack, isSending, isSubmitting }) {
           className="absolute inset-0"
           style={{
             background:
-              "linear-gradient(135deg, hsl(340 60% 28% / 0.85) 0%, hsl(340 50% 20% / 0.95) 100%)",
+              "linear-gradient(135deg, hsl(347 55% 22% / 0.88) 0%, hsl(347 48% 14% / 0.96) 100%)",
           }}
         />
         <SakuraPetals count={10} />
@@ -313,7 +313,7 @@ function TwoFAScreen({ email, onVerify, onBack, isSending, isSubmitting }) {
               <div key={i} className="flex items-center gap-3">
                 <div
                   className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                    s.done ? "bg-white text-[hsl(340,50%,28%)]" : "bg-white/15 text-white/50"
+                    s.done ? "bg-white text-[hsl(347,60%,28%)]" : "bg-white/15 text-white/50"
                   }`}
                 >
                   {s.done ? <CheckCircle size={12} /> : i + 1}
@@ -336,7 +336,7 @@ function TwoFAScreen({ email, onVerify, onBack, isSending, isSubmitting }) {
           <div
             className="absolute w-[500px] h-[500px] rounded-full opacity-[0.03]"
             style={{
-              background: "radial-gradient(circle, hsl(347 55% 49%), transparent 70%)",
+              background: "radial-gradient(circle, hsl(var(--primary)), transparent 70%)",
               right: "-100px",
               top: "-100px",
             }}
@@ -349,7 +349,7 @@ function TwoFAScreen({ email, onVerify, onBack, isSending, isSubmitting }) {
             <div className="w-12 h-12 rounded-xl bg-white shadow-md ring-1 ring-primary/20 flex items-center justify-center">
               <img src={logoSakura} alt="SAKURA" className="w-10 h-10 rounded-lg" />
             </div>
-            <span className="text-xl font-bold tracking-wider" style={{ color: "hsl(347 45% 38%)" }}>
+            <span className="text-xl font-bold tracking-wider" style={{ color: "hsl(var(--primary))" }}>
               SAKURA
             </span>
           </button>
@@ -358,21 +358,21 @@ function TwoFAScreen({ email, onVerify, onBack, isSending, isSubmitting }) {
           <button
             onClick={onBack}
             className="flex items-center gap-1.5 text-sm font-medium mb-6 hover:underline transition-colors"
-            style={{ color: "hsl(347 45% 38%)" }}
+            style={{ color: "hsl(var(--primary))" }}
           >
             <ArrowLeft size={15} /> Kembali ke Login
           </button>
 
           {/* Header */}
           <div className="mb-7">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ background: "hsl(347 55% 49% / 0.1)" }}>
-              <Mail size={26} style={{ color: "hsl(347 55% 42%)" }} />
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ background: "hsl(var(--ring) / 0.2)" }}>
+              <Mail size={26} style={{ color: "hsl(var(--primary))" }} />
             </div>
             <h2 className="text-2xl font-bold text-foreground">Masukkan Kode OTP</h2>
             <p className="text-sm text-muted-foreground mt-1.5">
               Kode verifikasi 6 digit telah dikirim ke
             </p>
-            <p className="text-sm font-semibold mt-0.5" style={{ color: "hsl(347 45% 38%)" }}>
+            <p className="text-sm font-semibold mt-0.5" style={{ color: "hsl(var(--primary))" }}>
               {email}
             </p>
           </div>
@@ -382,7 +382,7 @@ function TwoFAScreen({ email, onVerify, onBack, isSending, isSubmitting }) {
             <div className="space-y-4">
               <div
                 className="p-4 rounded-2xl border"
-                style={{ background: "hsl(347 55% 49% / 0.04)", borderColor: "hsl(347 55% 49% / 0.2)" }}
+                style={{ background: "hsl(var(--ring) / 0.2)", borderColor: "hsl(var(--ring) / 0.2)" }}
               >
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   Klik tombol di bawah untuk mengirim kode OTP ke email Anda. Periksa inbox dan masukkan kode 6 digit yang kami kirimkan.
@@ -391,7 +391,7 @@ function TwoFAScreen({ email, onVerify, onBack, isSending, isSubmitting }) {
               <button
                 onClick={handleSend}
                 className="w-full py-3 rounded-xl font-semibold text-white flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
-                style={{ background: "hsl(347 55% 42%)" }}
+                style={{ background: "hsl(var(--primary))" }}
               >
                 <Mail size={16} /> Kirim OTP ke Email
               </button>
@@ -414,8 +414,8 @@ function TwoFAScreen({ email, onVerify, onBack, isSending, isSubmitting }) {
                       onKeyDown={(e) => handleKeyDown(e, i)}
                       className={`w-12 h-14 text-center text-2xl font-bold rounded-2xl border-2 bg-background focus:outline-none transition-all ${
                         digit
-                          ? "border-primary text-foreground shadow-[0_0_0_4px_hsl(347_55%_49%/0.1)]"
-                          : "border-input focus:border-primary focus:shadow-[0_0_0_4px_hsl(347_55%_49%/0.1)]"
+                          ? "border-primary text-foreground shadow-[0_0_0_4px_hsl(var(--ring)/0.12)]"
+                          : "border-input focus:border-primary focus:shadow-[0_0_0_4px_hsl(var(--ring)/0.12)]"
                       }`}
                       autoFocus={i === 0}
                     />
@@ -428,7 +428,7 @@ function TwoFAScreen({ email, onVerify, onBack, isSending, isSubmitting }) {
                     className="h-full rounded-full transition-all duration-300"
                     style={{
                       width: `${(filled / 6) * 100}%`,
-                      background: "hsl(347 55% 42%)",
+                      background: "hsl(var(--primary))",
                     }}
                   />
                 </div>
@@ -445,7 +445,7 @@ function TwoFAScreen({ email, onVerify, onBack, isSending, isSubmitting }) {
                 <span className="text-xs text-muted-foreground">Lupa kata sandi? </span>
                 <button
                   className="text-xs font-semibold hover:underline"
-                  style={{ color: "hsl(347 45% 38%)" }}
+                  style={{ color: "hsl(var(--primary))" }}
                   onClick={() => alert("Simulasi: Link reset dikirim ke email")}
                 >
                   Reset via email
@@ -456,7 +456,7 @@ function TwoFAScreen({ email, onVerify, onBack, isSending, isSubmitting }) {
                 onClick={handleVerify}
                 disabled={filled < 6 || isSubmitting}
                 className="w-full py-3 rounded-xl font-semibold text-white flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-                style={{ background: "hsl(347 55% 42%)" }}
+                style={{ background: "hsl(var(--primary))" }}
               >
                 {isSubmitting ? (
                   <>
@@ -516,7 +516,9 @@ export default function LoginPage() {
       setError("Akun Anda belum diaktifkan. Silakan tunggu persetujuan dari Operator TU.");
       return;
     }
-    if (user.twoFactorEnabled) {
+    // Check 2FA: from in-memory state OR from localStorage (persisted after logout)
+    const has2FA = user.twoFactorEnabled || localStorage.getItem(`sakura_2fa_${user.email}`) === "true";
+    if (has2FA) {
       setPendingUser(user);
       setOtpStep(true);
       return;
@@ -550,7 +552,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col lg:flex-row overflow-hidden">
       {/* ── Left panel ── */}
       <div className="hidden lg:flex flex-col justify-center w-1/2 relative overflow-hidden">
-        <div className="absolute inset-0" style={{ background: "hsl(340 73% 65%)" }} />
+        <div className="absolute inset-0" style={{ background: "hsl(347 62% 32%)" }} />
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: `url(${sakuraBg})`, opacity: 0.55 }}
@@ -559,7 +561,7 @@ export default function LoginPage() {
           className="absolute inset-0"
           style={{
             background:
-              "linear-gradient(to bottom, hsl(340 60% 30% / 0.45) 0%, hsl(340 55% 25% / 0.70) 60%, hsl(340 50% 20% / 0.85) 100%)",
+              "linear-gradient(to bottom, hsl(347 55% 22% / 0.55) 0%, hsl(347 50% 18% / 0.75) 60%, hsl(347 45% 14% / 0.88) 100%)",
           }}
         />
         <SakuraPetals count={16} />
@@ -604,7 +606,7 @@ export default function LoginPage() {
           <div
             className="absolute w-[500px] h-[500px] rounded-full opacity-[0.03]"
             style={{
-              background: "radial-gradient(circle, hsl(347 55% 49%), transparent 70%)",
+              background: "radial-gradient(circle, hsl(var(--primary)), transparent 70%)",
               right: "-100px",
               top: "-100px",
             }}
@@ -617,7 +619,7 @@ export default function LoginPage() {
             <div className="w-12 h-12 rounded-xl bg-white shadow-md ring-1 ring-primary/20 flex items-center justify-center">
               <img src={logoSakura} alt="SAKURA" className="w-10 h-10 rounded-lg" />
             </div>
-            <span className="text-xl font-bold tracking-wider" style={{ color: "hsl(347 45% 38%)" }}>
+            <span className="text-xl font-bold tracking-wider" style={{ color: "hsl(var(--primary))" }}>
               SAKURA
             </span>
           </button>
@@ -626,7 +628,7 @@ export default function LoginPage() {
             <button
               onClick={() => navigate(-1)}
               className="flex items-center gap-1.5 text-sm font-medium hover:underline transition-colors"
-              style={{ color: "hsl(347 45% 38%)" }}
+              style={{ color: "hsl(var(--primary))" }}
             >
               <ArrowLeft size={15} /> Kembali
             </button>
@@ -673,7 +675,7 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => alert("Simulasi: Link reset password dikirim ke email")}
                 className="text-sm font-semibold hover:underline"
-                style={{ color: "hsl(347 45% 38%)" }}
+                style={{ color: "hsl(var(--primary))" }}
               >
                 Lupa password?
               </button>
@@ -685,7 +687,7 @@ export default function LoginPage() {
               type="submit"
               disabled={isSubmitting}
               className="group w-full py-2.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-70 text-white"
-              style={{ background: "hsl(347 55% 42%)" }}
+              style={{ background: "hsl(var(--primary))" }}
             >
               {isSubmitting ? (
                 <>
@@ -706,7 +708,7 @@ export default function LoginPage() {
             <button
               onClick={() => navigate("/signup")}
               className="font-semibold hover:underline"
-              style={{ color: "hsl(347 45% 38%)" }}
+              style={{ color: "hsl(var(--primary))" }}
             >
               Daftar di sini
             </button>
