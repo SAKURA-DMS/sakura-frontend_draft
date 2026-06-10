@@ -2,22 +2,10 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useApp } from "@/contexts/AppContext.jsx";
 
 const DEFAULT_SETTINGS = {
-  theme: "light", fontSize: "normal", language: "id",
+  theme: "light",
   notifications: { email: true, inApp: true, upload: true, approve: true, reject: true, folderShare: true, frequency: "realtime" },
-  viewer: { floatingPreview: true, defaultZoom: 100, fullscreenOnClick: true },
   scan: { autoCrop: true, compression: "medium", autoSaveFolder: "" },
-  folderMapping: {
-    enabled: true,
-    mappings: [
-      { jenisDokumen: "Ijazah", targetFolder: "Ijazah" },
-      { jenisDokumen: "Rapor", targetFolder: "Nilai" },
-      { jenisDokumen: "Surat Keputusan", targetFolder: "SK" },
-      { jenisDokumen: "Data Siswa", targetFolder: "Data Siswa" },
-      { jenisDokumen: "Laporan Keuangan", targetFolder: "Laporan" },
-      { jenisDokumen: "Sertifikat", targetFolder: "Sertifikat" },
-    ],
-  },
-  security: { twoFactor: false, sessionTimeout: "1h", loginWithGoogle: false },
+  security: { twoFactor: false, sessionTimeout: "1h" },
 };
 
 const SettingsContext = createContext(null);
@@ -27,8 +15,6 @@ export const useSettings = () => {
   if (!ctx) throw new Error("useSettings must be used within SettingsProvider");
   return ctx;
 };
-
-const FONT_SIZE_MAP = { small: "13px", normal: "15px", large: "17px" };
 
 function applyTheme(theme) {
   const root = document.documentElement;
@@ -40,13 +26,10 @@ function applyTheme(theme) {
   }
 }
 
-function applyFontSize(fontSize) {
-  document.body.style.fontSize = FONT_SIZE_MAP[fontSize];
-}
-
 export const SettingsProvider = ({ children }) => {
   const { currentUser } = useApp();
-  const storageKey = `sakura_prefs_${currentUser.id}`;
+  // Guard: currentUser bisa null saat authLoading belum selesai
+  const storageKey = `sakura_prefs_${currentUser?.id ?? "guest"}`;
 
   const [settings, setSettings] = useState(() => {
     try {
@@ -56,7 +39,7 @@ export const SettingsProvider = ({ children }) => {
     return DEFAULT_SETTINGS;
   });
 
-  useEffect(() => { applyTheme(settings.theme); applyFontSize(settings.fontSize); }, [settings.theme, settings.fontSize]);
+  useEffect(() => { applyTheme(settings.theme); }, [settings.theme]);
 
   useEffect(() => {
     if (settings.theme !== "system") return;
@@ -78,9 +61,7 @@ export const SettingsProvider = ({ children }) => {
 
   const updateSettings = useCallback((partial) => { setSettings((prev) => ({ ...prev, ...partial })); }, []);
   const updateNotifications = useCallback((partial) => { setSettings((prev) => ({ ...prev, notifications: { ...prev.notifications, ...partial } })); }, []);
-  const updateViewer = useCallback((partial) => { setSettings((prev) => ({ ...prev, viewer: { ...prev.viewer, ...partial } })); }, []);
   const updateScan = useCallback((partial) => { setSettings((prev) => ({ ...prev, scan: { ...prev.scan, ...partial } })); }, []);
-  const updateFolderMapping = useCallback((partial) => { setSettings((prev) => ({ ...prev, folderMapping: { ...prev.folderMapping, ...partial } })); }, []);
   const updateSecurity = useCallback((partial) => { setSettings((prev) => ({ ...prev, security: { ...prev.security, ...partial } })); }, []);
   const resetToDefault = useCallback(() => { setSettings(DEFAULT_SETTINGS); }, []);
 
@@ -89,13 +70,13 @@ export const SettingsProvider = ({ children }) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `sakura_preferences_${currentUser.id}.json`;
+    a.download = `sakura_preferences_${currentUser?.id ?? "guest"}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [settings, currentUser.id]);
+  }, [settings, currentUser?.id]);
 
   return (
-    <SettingsContext.Provider value={{ settings, updateSettings, updateNotifications, updateViewer, updateScan, updateFolderMapping, updateSecurity, resetToDefault, exportPreferences }}>
+    <SettingsContext.Provider value={{ settings, updateSettings, updateNotifications, updateScan, updateSecurity, resetToDefault, exportPreferences }}>
       {children}
     </SettingsContext.Provider>
   );

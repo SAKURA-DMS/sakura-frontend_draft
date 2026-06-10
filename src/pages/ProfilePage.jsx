@@ -1,31 +1,89 @@
-import { useState, useRef } from "react";
-import { User, Mail, Shield, Building2, Camera, Upload as UploadIcon, Save, Hash } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { User, Mail, Shield, Building2, Camera, Upload as UploadIcon, Save, Hash, Pencil } from "lucide-react";
 import AppHeader from "@/components/layout/AppHeader";
 import { useApp } from "@/contexts/AppContext";
 import { useToast } from "@/hooks/use-toast";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+
+function AvatarImage({ src, nama, className, onClick, title }) {
+  const [broken, setBroken] = useState(false);
+
+  useEffect(() => {
+    setBroken(false);
+  }, [src]);
+
+  const initials = (nama || "U")
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
+  const isValidSrc =
+    src &&
+    !broken &&
+    (src.startsWith("data:image/") || src.startsWith("http") || src.startsWith("/"));
+
+  if (!isValidSrc) {
+    return (
+      <div
+        className={`${className} bg-primary/20 flex items-center justify-center text-primary font-bold select-none cursor-pointer`}
+        onClick={onClick}
+        title={title}
+        aria-label={nama}
+      >
+        <span className="text-2xl leading-none">{initials}</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={nama || "Avatar"}
+      className={className}
+      onClick={onClick}
+      title={title}
+      onError={() => setBroken(true)}
+    />
+  );
+}
 
 export default function ProfilePage() {
   const { currentUser, updateUserAvatar, updateProfile } = useApp();
   const { toast } = useToast();
+  
+  const [isEditing, setIsEditing] = useState(false);
   const [fullName, setFullName] = useState(currentUser.nama);
   const [saving, setSaving] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  
   const [showPhotoMenu, setShowPhotoMenu] = useState(false);
   const [previewPhoto, setPreviewPhoto] = useState(null);
+  const [savingPhoto, setSavingPhoto] = useState(false);
   const [showCameraModal, setShowCameraModal] = useState(false);
+  const [viewImage, setViewImage] = useState(false);
+  
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  const handleSave = () => {
+  const handleSaveClick = () => {
     if (!fullName.trim()) {
       toast({ title: "Nama tidak boleh kosong", variant: "destructive" });
       return;
     }
+    setShowConfirm(true);
+  };
+
+  const confirmSave = () => {
+    setShowConfirm(false);
     setSaving(true);
     setTimeout(() => {
       updateProfile({ nama: fullName.trim() });
       toast({ title: "Profil disimpan", description: "Nama lengkap berhasil diperbarui." });
       setSaving(false);
+      setIsEditing(false);
     }, 400);
   };
 
@@ -40,11 +98,33 @@ export default function ProfilePage() {
     reader.readAsDataURL(file);
   };
 
-  const savePhoto = () => {
-    if (previewPhoto) {
-      updateUserAvatar(currentUser.id, previewPhoto);
-      toast({ title: "Foto profil diperbarui" });
-      setPreviewPhoto(null);
+  /**
+   * FIX: savePhoto async — panggil updateUserAvatar yang kini hit API.
+   * Avatar tersimpan ke DB → persistent setelah logout/login.
+   */
+  const savePhoto = async () => {
+    if (!previewPhoto) return;
+    setSavingPhoto(true);
+    try {
+      const result = await updateUserAvatar(currentUser.id, previewPhoto);
+      if (result && result.ok === false) {
+        toast({
+          title: "Gagal menyimpan foto",
+          description: result.error || "Terjadi kesalahan saat menyimpan avatar.",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Foto profil diperbarui", description: "Avatar berhasil disimpan ke database." });
+        setPreviewPhoto(null);
+      }
+    } catch (err) {
+      toast({
+        title: "Gagal menyimpan foto",
+        description: err.message || "Terjadi kesalahan saat menyimpan avatar.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingPhoto(false);
     }
   };
 
@@ -79,6 +159,13 @@ export default function ProfilePage() {
     setShowCameraModal(false);
   };
 
+  // Cek apakah avatar yang tersimpan valid (untuk tombol "Lihat Foto")
+  const hasValidAvatar =
+    currentUser.avatar &&
+    (currentUser.avatar.startsWith("data:image/") ||
+      currentUser.avatar.startsWith("http") ||
+      currentUser.avatar.startsWith("/"));
+
   return (
     <>
       <AppHeader title="Profil Saya" subtitle="Lihat dan kelola informasi profil Anda" />
@@ -87,10 +174,13 @@ export default function ProfilePage() {
           {/* Avatar section */}
           <div className="bg-card border border-border rounded-xl p-6 flex flex-col items-center gap-4">
             <div className="relative">
-              <img
+              {/* FIX: Pakai AvatarImage (bukan <img> langsung) agar ada fallback */}
+              <AvatarImage
                 src={previewPhoto || currentUser.avatar}
-                alt=""
-                className="w-24 h-24 rounded-full object-cover border-4 border-primary/20"
+                nama={currentUser.nama}
+                onClick={() => !previewPhoto && hasValidAvatar && setViewImage(true)}
+                className={`w-24 h-24 rounded-full object-cover border-4 border-primary/20 ${!previewPhoto && hasValidAvatar ? 'cursor-pointer hover:opacity-80 transition' : ''}`}
+                title={!previewPhoto && hasValidAvatar ? "Klik untuk memperbesar foto" : undefined}
               />
             </div>
             <div className="text-center">
@@ -102,10 +192,18 @@ export default function ProfilePage() {
 
             {previewPhoto ? (
               <div className="flex gap-2">
-                <button onClick={savePhoto} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity">
-                  <Save size={16} /> Simpan Foto
+                <button
+                  onClick={savePhoto}
+                  disabled={savingPhoto}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  <Save size={16} /> {savingPhoto ? "Menyimpan..." : "Simpan Foto"}
                 </button>
-                <button onClick={cancelPhoto} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-input text-sm hover:bg-muted transition-colors">
+                <button
+                  onClick={cancelPhoto}
+                  disabled={savingPhoto}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-input text-sm hover:bg-muted transition-colors disabled:opacity-50"
+                >
                   Batal
                 </button>
               </div>
@@ -141,19 +239,23 @@ export default function ProfilePage() {
               <User size={18} className="text-primary" /> Informasi Profil
             </h3>
 
-            {/* Editable: Full Name */}
             <div>
               <label className="block text-xs text-muted-foreground mb-1.5 font-medium">Nama Lengkap</label>
-              <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
-                placeholder="Masukkan nama lengkap"
-              />
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
+                  autoFocus
+                />
+              ) : (
+                <div className="px-3 py-2.5 text-sm rounded-lg bg-muted/50 border border-border cursor-not-allowed select-none text-foreground font-semibold">
+                  {currentUser.nama}
+                </div>
+              )}
             </div>
 
-            {/* Read-only fields with not-allowed cursor */}
             {[
               { icon: Mail, label: "Email", value: currentUser.email },
               { icon: Shield, label: "Role", value: currentUser.role },
@@ -169,17 +271,59 @@ export default function ProfilePage() {
               </div>
             ))}
 
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
-              <Save size={16} />
-              {saving ? "Menyimpan..." : "Simpan Perubahan"}
-            </button>
+            <div className="pt-2">
+              {!isEditing ? (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+                >
+                  <Pencil size={16} /> Edit Informasi Profil
+                </button>
+              ) : (
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => { setIsEditing(false); setFullName(currentUser.nama); }}
+                    className="w-1/2 py-2.5 rounded-lg border border-input text-sm font-semibold hover:bg-muted transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    onClick={handleSaveClick}
+                    disabled={saving}
+                    className="w-1/2 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+                  >
+                    <Save size={16} /> {saving ? "Menyimpan..." : "Simpan Perubahan"}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Pop Up Confirm Dialog */}
+      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Simpan Perubahan Profil?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apakah Anda yakin ingin menyimpan perubahan pada profil ini?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmSave}>Ya, Simpan</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Expand Full Image Overlay — hanya jika avatar valid */}
+      {viewImage && hasValidAvatar && (
+        <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-6" onClick={() => setViewImage(false)}>
+          <img src={currentUser.avatar} alt="Avatar" className="max-w-full max-h-[85vh] rounded-2xl shadow-2xl object-contain animate-in zoom-in-95 duration-200" onError={() => setViewImage(false)} />
+          <button className="absolute top-6 right-6 text-white/70 hover:text-white" onClick={() => setViewImage(false)}>Tutup</button>
+        </div>
+      )}
 
       {/* Camera Modal */}
       {showCameraModal && (

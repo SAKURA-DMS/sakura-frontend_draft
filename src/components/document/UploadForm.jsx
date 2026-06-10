@@ -2,7 +2,6 @@ import { useState, useRef, useMemo, useCallback } from "react";
 import { Upload, Camera, X, Eye, FileText, CalendarIcon, ChevronDown, Maximize, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, RotateCw, AlertTriangle, Lock, Search } from "lucide-react";
 import CameraScanModal from "@/components/shared/CameraScan";
 import { useApp } from "@/contexts/AppContext";
-import OcrScanner from "@/components/document/OcrScanner";
 
 import PdfPreviewOverlay from "@/components/document/PdfPreview";
 import { format } from "date-fns";
@@ -19,7 +18,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
   const fileRef = useRef(null);
   const [file, setFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
-  const [scanPageImages, setScanPageImages] = useState([]); // scanned page images for validation preview
+  const [scanPageImages, setScanPageImages] = useState([]); 
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -90,12 +89,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
   // Dynamic metadata fields state (category-specific data)
   const [metaData, setMetaData] = useState({});
 
-  const jenisOptions = useMemo(() => {
-    if (!selectedCategoryId) return [];
-    return DOCUMENT_TYPES.filter((t) => t.category_id === selectedCategoryId);
-  }, [selectedCategoryId]);
-
-  // Get dynamic fields based on category and type
   const dynamicFields = useMemo(() => {
     if (!selectedCategoryId || !selectedTypeId) return [];
     // Surat Menyurat has type-specific fields
@@ -373,17 +366,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
               <span className="text-muted-foreground"> (auto-mapping)</span>
             </div>
           )}
-          {/* OCR Scanner */}
-          <OcrScanner onApplyFields={(fields) => {
-            fields.forEach((f) => {
-              if (f.key === "Nama" || f.key === "Teks 1") update("judul", f.value);
-              if (f.key === "NIP") updateMeta("nip", f.value.replace(/\s/g, ""));
-              if (f.key === "NIS/NISN") updateMeta("nisn", f.value);
-              if (f.key === "Kelas") updateMeta("kelas", f.value);
-              if (f.key === "Nomor Surat") update("nomorDokumen", f.value);
-              if (f.key === "Perihal") update("judul", f.value);
-            });
-          }} />
+          {/* OCR scanner removed per requirements */}
 
           <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
             <h3 className="font-bold text-foreground mb-4 flex items-center gap-2"><FileText size={18} className="text-primary" /> File Dokumen</h3>

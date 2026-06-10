@@ -1,15 +1,22 @@
 import { X, User as UserIcon, Mail, Shield, Building, Lock, Camera, Upload } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
 import { useRef, useState, useCallback, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function UserProfileModal({ user, onClose }) {
   const { updateUserAvatar, logout, currentUser } = useApp();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const fileRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [showCamera, setShowCamera] = useState(false);
   const [stream, setStream] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [oldPass, setOldPass] = useState("");
+  const [newPass, setNewPass] = useState("");
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const isOwnProfile = currentUser.id === user.id;
 
   const handleFileUpload = (e) => { const file = e.target.files?.[0]; if (!file || !isOwnProfile) return; const reader = new FileReader(); reader.onload = () => updateUserAvatar(user.id, reader.result); reader.readAsDataURL(file); };
@@ -29,7 +36,20 @@ export default function UserProfileModal({ user, onClose }) {
           <div className="h-px bg-border" />
           <div className="space-y-4">{[{ icon: UserIcon, label: "Nama Lengkap", value: user.nama }, { icon: Mail, label: "Email", value: user.email }, { icon: Shield, label: "Role", value: user.role }, { icon: Building, label: "Departemen", value: user.departemen }].map(({ icon: Icon, label, value }) => (<div key={label} className="flex items-center gap-3"><Icon size={18} className="text-muted-foreground shrink-0" /><div><div className="text-xs text-muted-foreground">{label}</div><div className="text-sm font-medium text-foreground">{value}</div></div></div>))}</div>
           <div className="h-px bg-border" />
-          {isOwnProfile && (<>{!showPassword ? (<button onClick={() => setShowPassword(true)} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-input text-sm hover:bg-muted transition-colors"><Lock size={16} /> Ubah Password</button>) : (<div className="space-y-3"><input type="password" placeholder="Password Lama" className="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring" /><input type="password" placeholder="Password Baru" className="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring" /><div className="flex gap-2"><button className="flex-1 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Simpan</button><button onClick={() => setShowPassword(false)} className="px-3 py-2 rounded-lg border border-input text-sm">Batal</button></div></div>)}<button onClick={() => { logout(); onClose(); }} className="w-full px-4 py-2.5 rounded-lg bg-destructive text-destructive-foreground text-sm font-semibold hover:opacity-90 transition-opacity">Keluar dari Sistem</button></>)}
+          {isOwnProfile && (<>{!showPassword ? (<button onClick={() => setShowPassword(true)} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-input text-sm hover:bg-muted transition-colors"><Lock size={16} /> Ubah Password</button>) : (<div className="space-y-3"><input type="password" value={oldPass} onChange={(e) => setOldPass(e.target.value)} placeholder="Password Lama" className="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring" /><input type="password" value={newPass} onChange={(e) => setNewPass(e.target.value)} placeholder="Password Baru" className="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring" /><div className="flex gap-2"><button onClick={() => { if (!oldPass || !newPass) return; setShowPasswordConfirm(true); }} className="flex-1 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Simpan</button><button onClick={() => { setShowPassword(false); setOldPass(""); setNewPass(""); }} className="px-3 py-2 rounded-lg border border-input text-sm">Batal</button></div></div>)}<button onClick={() => { onClose(); logout(); navigate('/', { replace: true }); }} className="w-full px-4 py-2.5 rounded-lg bg-destructive text-destructive-foreground text-sm font-semibold hover:opacity-90 transition-opacity">Keluar dari Sistem</button></>)}
+
+          {showPasswordConfirm && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 backdrop-blur-sm" onClick={() => setShowPasswordConfirm(false)}>
+              <div className="bg-card rounded-xl shadow-2xl w-full max-w-sm p-6 mx-4" onClick={(e) => e.stopPropagation()}>
+                <h3 className="font-bold text-foreground mb-2">Konfirmasi Ubah Password</h3>
+                <p className="text-sm text-muted-foreground mb-4">Untuk keamanan, konfirmasi perubahan password Anda. Klik Konfirmasi untuk menyelesaikan.</p>
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setShowPasswordConfirm(false)} className="px-4 py-2 rounded-lg border border-input text-sm hover:bg-muted">Batal</button>
+                  <button onClick={() => { toast({ title: "Password diperbarui", description: "Password Anda telah berhasil diperbarui (simulasi)." }); setShowPassword(false); setShowPasswordConfirm(false); setOldPass(""); setNewPass(""); }} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90">Konfirmasi</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,6 +1,13 @@
-import React, { createContext, useContext, useState, useRef } from "react";
-import { USERS, DOCUMENTS, ROLE_PERMISSIONS, INITIAL_NOTIFICATIONS, DOCUMENT_TYPES, INITIAL_DOCUMENT_COUNTERS, FOLDERS } from "@/data/mockData.js";
-import avatarAdmin from "@/assets/avatar_admin.jpg";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import {
+  ROLE_PERMISSIONS,
+  FOLDERS,
+} from "@/data/mockData.js";
+import * as authService from "@/services/authService";
+import * as userService from "@/services/userService";
+import * as documentService from "@/services/documentService";
+import * as notificationService from "@/services/notificationService";
+import { getToken } from "@/lib/apiClient";
 
 const AppContext = createContext(null);
 
@@ -10,41 +17,249 @@ export const useApp = () => {
   return ctx;
 };
 
-export const AppProvider = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState(USERS[0]);
-  const [users, setUsers] = useState(USERS);
-  const [documents, setDocuments] = useState(DOCUMENTS);
-  const [rolePermissions, setRolePermissions] = useState(ROLE_PERMISSIONS);
-  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
-  const [documentCounters, setDocumentCounters] = useState(INITIAL_DOCUMENT_COUNTERS);
-  const countersRef = useRef(documentCounters);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [customFolders, setCustomFolders] = useState([]);
-  const nextFolderIdRef = useRef(1000);
+const NOTIF_POLL_INTERVAL = 60_000;
 
-  // --- Folder CRUD ---
+export const AppProvider = ({ children }) => {
+  // ── Auth State ────────────────────────────────────────────────────────────
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // ── Document State ────────────────────────────────────────────────────────
+  const [documents, setDocuments] = useState([]);
+  const [trashedDocuments, setTrashedDocuments] = useState([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+
+  // ── Non-document state ────────────────────────────────────────────────────
+  const [rolePermissions, setRolePermissions] = useState(ROLE_PERMISSIONS);
+
+  // ── Notification State — Phase 7: dari API, bukan mock ───────────────────
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const pollingRef = useRef(null);
+
+  // ── Folders (tetap lokal) ─────────────────────────────────────────────────
+  const [customFolders, setCustomFolders] = useState([]);
+  const [nextFolderId, setNextFolderId] = useState(1000);
+
+  // ── Users State ───────────────────────────────────────────────────────────
+  const [users, setUsers] = useState([]);
+  const [pendingUsersState, setPendingUsersState] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+
+  const isLoggedIn = !!currentUser;
+
+  // ── Restore Session ───────────────────────────────────────────────────────
+  useEffect(() => {
+    const restore = async () => {
+      const token = getToken();
+      if (!token) { setAuthLoading(false); return; }
+      try {
+        const { user } = await authService.getMe();
+        setCurrentUser(user);
+      } catch {
+        setCurrentUser(null);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+    restore();
+  }, []);
+
+  // ── Load Notifications dari API ───────────────────────────────────────────
+  const loadNotifications = useCallback(async () => {
+    setNotificationsLoading(true);
+    try {
+      const list = await notificationService.listNotifications();
+      setNotifications(list);
+    } catch (err) {
+      console.error("Gagal memuat notifikasi:", err);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  }, []);
+
+  // ── Auto-load + Polling saat user login ───────────────────────────────────
+  useEffect(() => {
+    if (!currentUser) {
+      setNotifications([]);
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+      return;
+    }
+
+    loadNotifications();
+
+    pollingRef.current = setInterval(loadNotifications, NOTIF_POLL_INTERVAL);
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [currentUser, loadNotifications]);
+
+  // ── Load Documents dari API ───────────────────────────────────────────────
+  const loadDocuments = useCallback(async (params = {}) => {
+    setDocumentsLoading(true);
+    try {
+      const { documents: list } = await documentService.listDocuments(params);
+      setDocuments(list);
+    } catch (err) {
+      console.error("Gagal memuat dokumen:", err);
+    } finally {
+      setDocumentsLoading(false);
+    }
+  }, []);
+
+  const loadTrashedDocuments = useCallback(async () => {
+    try {
+      const { documents: list } = await documentService.listTrashedDocuments();
+      setTrashedDocuments(list);
+    } catch (err) {
+      console.error("Gagal memuat dokumen trash:", err);
+    }
+  }, []);
+
+  // ── Load Users dari API ───────────────────────────────────────────────────
+  const loadUsers = useCallback(async () => {
+    setUsersLoading(true);
+    try {
+      const { users: activeList } = await userService.listUsers();
+      setUsers(activeList);
+    } catch (err) {
+      console.error("Gagal memuat user:", err);
+    } finally {
+      setUsersLoading(false);
+    }
+  }, []);
+
+  const loadPendingUsers = useCallback(async () => {
+    try {
+      const { users: pendingList } = await userService.listPendingUsers();
+      setPendingUsersState(pendingList);
+    } catch (err) {
+      console.error("Gagal memuat pending users:", err);
+    }
+  }, []);
+
+  // ── LOGIN ─────────────────────────────────────────────────────────────────
+  const login = async (email, password) => {
+    try {
+      const data = await authService.login(email, password);
+      if (data.require2FA) {
+        return { ok: true, require2FA: true, email: data.email, message: data.message };
+      }
+      setCurrentUser(data.user);
+      return { ok: true, user: data.user };
+    } catch (err) {
+      const status = err.response?.status;
+      const isPending = status === 403 && err.response?.data?.status === "pending";
+      return { ok: false, error: err.message || "Login gagal", pending: isPending };
+    }
+  };
+
+  const finalizeLogin = (user) => {
+    setCurrentUser(user);
+  };
+
+  // ── LOGOUT ────────────────────────────────────────────────────────────────
+  const logout = () => {
+    authService.logout();
+    setCurrentUser(null);
+    setUsers([]);
+    setPendingUsersState([]);
+    setDocuments([]);
+    setTrashedDocuments([]);
+    setNotifications([]);
+  };
+
+  // ── Folder CRUD (custom folders, tetap local) ─────────────────────────────
   const createFolder = (folderName, parentPath = null, description = "") => {
-    const id = nextFolderIdRef.current++;
+    const id = nextFolderId;
+    setNextFolderId((n) => n + 1);
     const newFolder = { id, name: folderName, parentPath, description, isCustom: true, createdAt: new Date().toISOString() };
     setCustomFolders((prev) => [...prev, newFolder]);
     return newFolder;
   };
 
   const editFolder = (folderId, data) => {
-    setCustomFolders((prev) => prev.map((f) => f.id === folderId ? { ...f, ...data } : f));
+    setCustomFolders((prev) => prev.map((f) => (f.id === folderId ? { ...f, ...data } : f)));
   };
 
   const deleteFolder = (folderId) => {
     setCustomFolders((prev) => prev.filter((f) => f.id !== folderId));
   };
 
-  // --- Document CRUD ---
-  const editDocument = (docId, data) => {
-    setDocuments((prev) => prev.map((d) => d.id === docId ? { ...d, ...data, tanggalEdit: new Date().toISOString() } : d));
+  // ── Document CRUD ──────────────────────
+  const uploadDocument = async (docOrFormData, onProgress) => {
+    if (!hasPermission("documents.upload")) return { ok: false, error: "Akses ditolak" };
+    try {
+      let formData;
+      if (docOrFormData instanceof FormData) {
+        formData = docOrFormData;
+      } else {
+        const doc = docOrFormData;
+        formData = new FormData();
+        if (doc.file) formData.append("file", doc.file);
+        formData.append("judul", doc.judul || "");
+        formData.append("category_id", doc.category_id || doc.categoryId || "");
+        formData.append("type_id", doc.type_id || doc.typeId || "");
+        if (doc.folder_id) formData.append("folder_id", doc.folder_id);
+        if (doc.tahun_ajaran || doc.tahunAjaran) formData.append("tahun_ajaran", doc.tahun_ajaran || doc.tahunAjaran);
+        if (doc.catatan) formData.append("catatan", doc.catatan);
+        if (doc.metadata) formData.append("metadata", typeof doc.metadata === "string" ? doc.metadata : JSON.stringify(doc.metadata));
+      }
+      const result = await documentService.uploadDocument(formData, onProgress);
+      await loadDocuments();
+      return { ok: true, ...result };
+    } catch (err) {
+      return { ok: false, error: err.message || "Gagal upload dokumen" };
+    }
   };
 
-  const moveDocument = (docId, newFolderPath) => {
-    // Parse the folder path to extract category/type/year
+  const getDownloadUrl = async (docId, expiryMin = 60) => {
+    try {
+      return await documentService.getDownloadUrl(docId, expiryMin);
+    } catch (err) {
+      console.error("Gagal mendapatkan download URL:", err);
+      return null;
+    }
+  };
+
+  const replaceDocumentFile = async (docId, file, onProgress) => {
+    try {
+      const result = await documentService.replaceFile(docId, file, onProgress);
+      setDocuments((prev) =>
+        prev.map((d) =>
+          d.id === docId
+            ? { ...d, fileUrl: result.file_url, versi: result.versi, updated_at: new Date().toISOString() }
+            : d
+        )
+      );
+      return { ok: true, ...result };
+    } catch (err) {
+      return { ok: false, error: err.message || "Gagal mengganti file" };
+    }
+  };
+
+  const editDocument = async (docId, data) => {
+    try {
+      await documentService.updateDocument(docId, data);
+      setDocuments((prev) =>
+        prev.map((d) =>
+          d.id === docId ? { ...d, ...data, updated_at: new Date().toISOString() } : d
+        )
+      );
+    } catch (err) {
+      console.error("Gagal edit dokumen:", err);
+      throw err;
+    }
+  };
+
+  const moveDocument = async (docId, newFolderPath) => {
     const parts = newFolderPath.split("/");
     const catPart = parts.find((p) => p.startsWith("cat:"));
     const typePart = parts.find((p) => p.startsWith("type:"));
@@ -52,100 +267,283 @@ export const AppProvider = ({ children }) => {
     const catId = catPart ? Number(catPart.split(":")[1]) : null;
     const typeId = typePart ? Number(typePart.split(":")[1]) : null;
     const year = yearPart ? yearPart.split(":")[1] : null;
-
     if (!catId) return;
 
-    const cat = FOLDERS.find((f) => f.category_id === catId && f.parent_id === null);
-    const docType = typeId ? DOCUMENT_TYPES.find((t) => t.type_id === typeId) : null;
+    const payload = {};
+    if (year) payload.tahun_ajaran = year;
 
-    setDocuments((prev) => prev.map((d) => {
-      if (d.id !== docId) return d;
-      return {
-        ...d,
-        category_id: catId,
-        kategori: cat?.folder_name || d.kategori,
-        type_id: typeId || d.type_id,
-        jenisDokumen: docType?.type_name || d.jenisDokumen,
-        tahunAjaran: year || d.tahunAjaran,
-        tanggalEdit: new Date().toISOString(),
-      };
-    }));
-  };
-
-  const deleteDocument = (docId) => {
-    setDocuments((prev) => prev.filter((d) => d.id !== docId));
-  };
-
-  const generateDocumentNumber = (typeId) => {
-    const docType = DOCUMENT_TYPES.find((t) => t.type_id === typeId);
-    if (!docType) return `DOC-${Date.now()}`;
-    const prefix = docType.code_prefix;
-    const year = new Date().getFullYear();
-    const counters = countersRef.current;
-    const existing = counters.find((c) => c.prefix === prefix && c.year === year);
-    let nextSeq;
-    let updated;
-    if (existing) {
-      nextSeq = existing.last_seq + 1;
-      updated = counters.map((c) => (c.prefix === prefix && c.year === year ? { ...c, last_seq: nextSeq } : c));
-    } else {
-      nextSeq = 1;
-      updated = [...counters, { prefix, year, last_seq: 1 }];
+    try {
+      if (Object.keys(payload).length > 0) {
+        await documentService.updateDocument(docId, payload);
+      }
+      setDocuments((prev) =>
+        prev.map((d) => {
+          if (d.id !== docId) return d;
+          return {
+            ...d,
+            category_id: catId,
+            type_id: typeId || d.type_id,
+            tahun_ajaran: year || d.tahun_ajaran,
+            updated_at: new Date().toISOString(),
+          };
+        })
+      );
+    } catch (err) {
+      console.error("Gagal move dokumen:", err);
+      throw err;
     }
-    countersRef.current = updated;
-    setDocumentCounters(updated);
-    return `${prefix}/${year}/${String(nextSeq).padStart(3, "0")}`;
   };
 
-  // getFolderForCategory removed — folder mapping now handled by getFolderIdForDocument in mockData
-
-  const login = (email) => {
-    const user = users.find((u) => u.email === email);
-    if (!user) return false;
-    if (user.status === "menunggu_approval") return "pending";
-    setCurrentUser(user); setIsLoggedIn(true); return true;
+  const deleteDocument = async (docId) => {
+    try {
+      await documentService.softDeleteDocument(docId);
+      setDocuments((prev) => {
+        const doc = prev.find((d) => d.id === docId);
+        if (doc) {
+          setTrashedDocuments((t) => [{ ...doc, deleted_at: new Date().toISOString() }, ...t]);
+        }
+        return prev.filter((d) => d.id !== docId);
+      });
+    } catch (err) {
+      console.error("Gagal hapus dokumen:", err);
+      throw err;
+    }
   };
 
-  const registerUser = (userData) => {
-    const newUser = { ...userData, id: Date.now(), status: "menunggu_approval", avatar: avatarAdmin, registeredAt: new Date().toISOString() };
-    setUsers((prev) => [...prev, newUser]);
-    return newUser;
+  const restoreDocument = async (docId) => {
+    try {
+      await documentService.restoreDocument(docId);
+      setTrashedDocuments((prev) => {
+        const doc = prev.find((d) => d.id === docId);
+        if (doc) {
+          const { deleted_at, ...restored } = doc;
+          setDocuments((d) => [restored, ...d]);
+        }
+        return prev.filter((d) => d.id !== docId);
+      });
+    } catch (err) {
+      console.error("Gagal restore dokumen:", err);
+      throw err;
+    }
   };
 
-  const activateUser = (userId) => {
-    setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, status: "active", role: u.role || "Guru" } : u));
+  const permanentlyDeleteDocument = async (docId) => {
+    try {
+      await documentService.permanentDeleteDocument(docId);
+      setTrashedDocuments((prev) => prev.filter((d) => d.id !== docId));
+    } catch (err) {
+      console.error("Gagal hapus permanen:", err);
+      throw err;
+    }
   };
 
-  const rejectRegistration = (userId) => {
-    setUsers((prev) => prev.filter((u) => u.id !== userId));
+  const approveDocument = async (docId, comment) => {
+    if (!hasPermission("documents.approve")) return;
+    try {
+      await documentService.approveDocument(docId, comment);
+      setDocuments((prev) =>
+        prev.map((d) =>
+          d.id === docId ? { ...d, status: "Diarsipkan", updated_at: new Date().toISOString() } : d
+        )
+      );
+    } catch (err) {
+      console.error("Gagal approve dokumen:", err);
+      throw err;
+    }
   };
 
-  const pendingUsers = users.filter((u) => u.status === "menunggu_approval");
-  const activeUsers = users.filter((u) => u.status !== "menunggu_approval");
+  const rejectDocument = async (docId, reason) => {
+    if (!hasPermission("documents.reject")) return;
+    try {
+      await documentService.rejectDocument(docId, reason);
+      setDocuments((prev) =>
+        prev.map((d) =>
+          d.id === docId ? { ...d, status: "Ditolak", catatan: reason, updated_at: new Date().toISOString() } : d
+        )
+      );
+    } catch (err) {
+      console.error("Gagal reject dokumen:", err);
+      throw err;
+    }
+  };
 
-  const logout = () => setIsLoggedIn(false);
+  // ── Approval Workflow ───────────────────────────────────────────
+  const createApprovalRequest = async (docId, requesterNote = "") => {
+    const result = await documentService.createApprovalRequest(docId, requesterNote);
+    setDocuments((prev) =>
+      prev.map((d) =>
+        d.id === docId ? { ...d, status: "Menunggu", updated_at: new Date().toISOString() } : d
+      )
+    );
+    await loadNotifications();
+    return result;
+  };
+
+  const approveRequest = async (requestId, docId, comment = "") => {
+    const result = await documentService.approveRequest(requestId, comment);
+    if (docId) {
+      setDocuments((prev) =>
+        prev.map((d) =>
+          d.id === docId ? { ...d, status: "Diarsipkan", updated_at: new Date().toISOString() } : d
+        )
+      );
+    }
+    // Requester mendapat notif → refresh
+    await loadNotifications();
+    return result;
+  };
+
+  const rejectRequest = async (requestId, docId, reason) => {
+    const result = await documentService.rejectRequest(requestId, reason);
+    if (docId) {
+      setDocuments((prev) =>
+        prev.map((d) =>
+          d.id === docId ? { ...d, status: "Ditolak", catatan: reason, updated_at: new Date().toISOString() } : d
+        )
+      );
+    }
+    await loadNotifications();
+    return result;
+  };
+
+  const cancelApprovalRequest = async (requestId, docId) => {
+    const result = await documentService.cancelApprovalRequest(requestId);
+    if (docId) {
+      setDocuments((prev) =>
+        prev.map((d) =>
+          d.id === docId ? { ...d, status: "Ditolak", updated_at: new Date().toISOString() } : d
+        )
+      );
+    }
+    return result;
+  };
+
+  const listApprovals = async (params = {}) => {
+    return documentService.listApprovals(params);
+  };
+
+  // ── Users & Auth ──────────────────────────────────────────────────────────
+  const registerUser = async (userData) => authService.register(userData);
+
+  const activateUser = async (userId) => {
+    await userService.activateUser(userId, "Guru");
+    await loadPendingUsers();
+    await loadUsers();
+  };
+
+  const rejectRegistration = async (userId) => {
+    await userService.rejectUser(userId);
+    await loadPendingUsers();
+  };
+
+  const pendingUsers = pendingUsersState;
+  const activeUsers = users;
 
   const hasPermission = (permission) => {
+    if (!currentUser) return false;
     return rolePermissions[currentUser.role]?.includes(permission) ?? false;
   };
 
-  const updateUserRole = (userId, newRole) => {
-    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
-    if (currentUser.id === userId) setCurrentUser((p) => ({ ...p, role: newRole }));
+  const updateUserRole = async (userId, newRole) => {
+    try {
+      await userService.updateUser(userId, { role: newRole });
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
+      if (currentUser?.id === userId) setCurrentUser((prev) => ({ ...prev, role: newRole }));
+    } catch (err) {
+      console.error("Gagal update role:", err);
+      throw err;
+    }
   };
 
-  const updateUserAvatar = (userId, avatar) => {
-    if (userId !== currentUser.id) return;
-    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, avatar } : u)));
-    setCurrentUser((p) => ({ ...p, avatar }));
+  /**
+   * Update avatar user.
+   *
+   * @param {number} userId  
+   * @param {string} avatar  
+   * @returns {Promise<{ ok: boolean, error?: string }>}
+   */
+  const updateUserAvatar = async (userId, avatar) => {
+    if (userId !== currentUser?.id) return { ok: false, error: "Bukan user aktif" };
+    try {
+      await userService.updateAvatar(userId, avatar);
+      setCurrentUser((prev) => ({ ...prev, avatar }));
+      return { ok: true };
+    } catch (err) {
+      console.error("Gagal menyimpan avatar:", err);
+      return { ok: false, error: err.message || "Gagal menyimpan avatar" };
+    }
   };
 
   const togglePermission = (role, permission) => {
     setRolePermissions((prev) => {
       const current = prev[role];
-      const next = current.includes(permission) ? current.filter((p) => p !== permission) : [...current, permission];
+      const next = current.includes(permission)
+        ? current.filter((p) => p !== permission)
+        : [...current, permission];
       return { ...prev, [role]: next };
     });
+  };
+
+  const addUser = async (userData) => {
+    if (currentUser?.role !== "Operator/TU") return { ok: false, error: "Akses ditolak" };
+    try {
+      const { user } = await userService.createUser(userData);
+      setUsers((prev) => [user, ...prev]);
+      return { ok: true, user };
+    } catch (err) {
+      return { ok: false, error: err.message || "Gagal membuat user" };
+    }
+  };
+
+  const updateUser = async (userId, data) => {
+    if (currentUser?.role !== "Operator/TU") return { ok: false, error: "Akses ditolak" };
+    try {
+      const { user } = await userService.updateUser(userId, data);
+      setUsers((prev) => prev.map((u) => (u.id === userId ? user : u)));
+      if (currentUser?.id === userId) setCurrentUser((prev) => ({ ...prev, ...user }));
+      return { ok: true, user };
+    } catch (err) {
+      return { ok: false, error: err.message || "Gagal mengupdate user" };
+    }
+  };
+
+  const updateProfile = async (data) => {
+    const allowed = { nama: data.nama };
+    try {
+      await userService.updateUser(currentUser.id, allowed);
+      setCurrentUser((prev) => ({ ...prev, ...allowed }));
+      setUsers((prev) => prev.map((u) => (u.id === currentUser?.id ? { ...u, ...allowed } : u)));
+    } catch (err) {
+      console.error("Gagal update profil:", err);
+      throw err;
+    }
+  };
+
+  const changePassword = async (currentPw, newPw) => authService.changePassword(currentPw, newPw);
+
+  const deleteUser = async (userId) => {
+    if (currentUser?.role !== "Operator/TU") return { ok: false, error: "Akses ditolak" };
+    if (userId === currentUser?.id) return { ok: false, error: "Tidak dapat menghapus akun sendiri" };
+    try {
+      await userService.deleteUser(userId);
+      setUsers((prev) => prev.filter((u) => u.id !== userId));
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message || "Gagal menghapus user" };
+    }
+  };
+
+  const setTwoFactorEnabled = (enabled) => {
+    setCurrentUser((prev) => ({ ...prev, twoFactorEnabled: enabled, is_2fa_enabled: enabled ? 1 : 0 }));
+    if (enabled) {
+      localStorage.setItem(`sakura_2fa_${currentUser?.email}`, "true");
+    } else {
+      localStorage.removeItem(`sakura_2fa_${currentUser?.email}`);
+    }
+  };
+
+  const toggleFavorite = (docId) => {
+    setDocuments((prev) => prev.map((d) => (d.id === docId ? { ...d, favorite: !d.favorite } : d)));
   };
 
   const addAuditNote = (docId, note) => {
@@ -153,133 +551,150 @@ export const AppProvider = ({ children }) => {
     setDocuments((prev) =>
       prev.map((d) => {
         if (d.id !== docId) return d;
-        const newTrail = [...d.auditTrail, { time: new Date().toISOString(), user: { nama: currentUser.nama, avatar: currentUser.avatar, role: currentUser.role }, action: `Catatan Admin: ${note}` }];
+        const newTrail = [
+          ...(d.auditTrail || []),
+          {
+            time: new Date().toISOString(),
+            user: { nama: currentUser.nama, avatar: currentUser.avatar, role: currentUser.role },
+            action: `Catatan Admin: ${note}`,
+          },
+        ];
         return { ...d, auditTrail: newTrail };
       })
     );
   };
 
-  const approveDocument = (docId, comment) => {
-    if (!hasPermission("documents.approve")) return;
-    setDocuments((prev) =>
-      prev.map((d) => {
-        if (d.id !== docId || d.status !== "Menunggu") return d;
-        return {
-          ...d, status: "Diarsipkan", tanggalEdit: new Date().toISOString(),
-          auditTrail: [...d.auditTrail,
-            { time: new Date().toISOString(), user: { nama: currentUser.nama, avatar: currentUser.avatar, role: currentUser.role }, action: comment ? `Menyetujui dokumen: ${comment}` : "Menyetujui dokumen" },
-            { time: new Date().toISOString(), user: { nama: "Sistem", avatar: currentUser.avatar, role: "Sistem" }, action: "Dokumen otomatis diarsipkan setelah persetujuan" },
-          ],
-        };
-      })
-    );
-    const doc = documents.find((d) => d.id === docId);
-    if (doc) {
-      setNotifications((prev) => [{ id: Date.now(), message: `Dokumen '${doc.judul}' telah disetujui, diarsipkan, dan QR Code verifikasi telah dibuat`, time: new Date().toISOString(), read: false, type: "approval", docId }, ...prev]);
-    }
-  };
-
-  const rejectDocument = (docId, reason) => {
-    if (!hasPermission("documents.reject")) return;
-    setDocuments((prev) =>
-      prev.map((d) => {
-        if (d.id !== docId || d.status !== "Menunggu") return d;
-        return {
-          ...d, status: "Ditolak", tanggalEdit: new Date().toISOString(), catatan: reason,
-          auditTrail: [...d.auditTrail, { time: new Date().toISOString(), user: { nama: currentUser.nama, avatar: currentUser.avatar, role: currentUser.role }, action: `Menolak dokumen: ${reason}` }],
-        };
-      })
-    );
-    const doc = documents.find((d) => d.id === docId);
-    if (doc) {
-      setNotifications((prev) => [{ id: Date.now(), message: `Dokumen '${doc.judul}' telah ditolak`, time: new Date().toISOString(), read: false, type: "rejection", docId }, ...prev]);
-    }
-  };
-
-  const uploadDocument = (doc) => {
-    if (!hasPermission("documents.upload")) return;
-    const newDoc = {
-      ...doc, id: Date.now(), status: "Menunggu", versi: 1, tanggalEdit: doc.tanggalUpload,
-      auditTrail: [{ time: doc.tanggalUpload, user: { nama: currentUser.nama, avatar: currentUser.avatar, role: currentUser.role }, action: "Mengunggah dokumen" }],
-    };
-    setDocuments((prev) => [newDoc, ...prev]);
-    setNotifications((prev) => [{ id: Date.now(), message: `Dokumen '${doc.judul}' telah diunggah dan menunggu persetujuan`, time: doc.tanggalUpload, read: false, type: "upload", docId: newDoc.id }, ...prev]);
-  };
-
-  const archiveDocument = (docId) => {
+  const archiveDocument = async (docId) => {
     if (!hasPermission("documents.archive")) return;
     setDocuments((prev) =>
       prev.map((d) => {
         if (d.id !== docId || d.status !== "Disetujui") return d;
-        return {
-          ...d, status: "Diarsipkan", tanggalEdit: new Date().toISOString(),
-          auditTrail: [...d.auditTrail, { time: new Date().toISOString(), user: { nama: currentUser.nama, avatar: currentUser.avatar, role: currentUser.role }, action: "Mengarsipkan dokumen dan membuat QR Code verifikasi" }],
-        };
+        return { ...d, status: "Diarsipkan", updated_at: new Date().toISOString() };
       })
     );
-    const doc = documents.find((d) => d.id === docId);
-    if (doc) {
-      setNotifications((prev) => [{ id: Date.now(), message: `Dokumen '${doc.judul}' berhasil diarsipkan dan QR Code verifikasi telah dibuat`, time: new Date().toISOString(), read: false, type: "archive", docId }, ...prev]);
+  };
+
+  // ── Notifications ──────────────────────────────────
+  const markNotificationRead = async (notifId) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notifId ? { ...n, read: true } : n))
+    );
+    try {
+      await notificationService.markRead(notifId);
+    } catch (err) {
+      console.error("Gagal mark notif read:", err);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notifId ? { ...n, read: false } : n))
+      );
     }
   };
 
-  const toggleFavorite = (docId) => {
-    setDocuments((prev) => prev.map((d) => d.id === docId ? { ...d, favorite: !d.favorite } : d));
+  const markAllNotificationsRead = async () => {
+    const prev = notifications;
+    setNotifications((n) => n.map((item) => ({ ...item, read: true })));
+    try {
+      await notificationService.markAllRead();
+    } catch (err) {
+      console.error("Gagal mark all notif read:", err);
+      setNotifications(prev); // rollback
+    }
   };
 
-  const markNotificationRead = (notifId) => {
-    setNotifications((prev) => prev.map((n) => n.id === notifId ? { ...n, read: true } : n));
+  const dismissNotification = async (notifId) => {
+    const prev = notifications;
+    setNotifications((n) => n.filter((item) => item.id !== notifId));
+    try {
+      await notificationService.deleteNotification(notifId);
+    } catch (err) {
+      console.error("Gagal dismiss notif:", err);
+      setNotifications(prev); // rollback
+    }
   };
 
-  const markAllNotificationsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  };
+  // ── Derived ───────────────────────────────────────────────────────────────
+  const activeDocuments = documents;
 
-  const addUser = (user) => {
-    if (currentUser.role !== "Operator/TU") return;
-    const newUser = { ...user, id: Date.now() };
-    setUsers((prev) => [...prev, newUser]);
-  };
+  const visibleNotifications = notifications;
 
-  const updateUser = (userId, data) => {
-    if (currentUser.role !== "Operator/TU") return;
-    setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, ...data } : u));
-    if (currentUser.id === userId) setCurrentUser((p) => ({ ...p, ...data }));
-  };
-
-  // Self-update profile (any logged-in user can update their own name)
-  const updateProfile = (data) => {
-    const allowed = { nama: data.nama };
-    setUsers((prev) => prev.map((u) => u.id === currentUser.id ? { ...u, ...allowed } : u));
-    setCurrentUser((p) => ({ ...p, ...allowed }));
-  };
-
-  // Change password (mock — compares against stored password)
-  const changePassword = (currentPw, newPw) => {
-    const user = users.find((u) => u.id === currentUser.id);
-    if ((user.password || "password123") !== currentPw) return false;
-    setUsers((prev) => prev.map((u) => u.id === currentUser.id ? { ...u, password: newPw } : u));
-    return true;
-  };
-
-  const deleteUser = (userId) => {
-    if (currentUser.role !== "Operator/TU") return false;
-    if (userId === currentUser.id) return false;
-    setUsers((prev) => prev.filter((u) => u.id !== userId));
-    return true;
-  };
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
-    <AppContext.Provider value={{
-      currentUser, users, documents, rolePermissions, notifications, isLoggedIn, customFolders,
-      pendingUsers, activeUsers,
-      login, logout, updateUserRole, updateUserAvatar, togglePermission, addAuditNote,
-      hasPermission, approveDocument, rejectDocument, uploadDocument, archiveDocument,
-      toggleFavorite, markNotificationRead, markAllNotificationsRead,
-      addUser, updateUser, deleteUser, generateDocumentNumber, updateProfile, changePassword,
-      registerUser, activateUser, rejectRegistration,
-      createFolder, editFolder, deleteFolder, editDocument, moveDocument, deleteDocument,
-    }}>
+    <AppContext.Provider
+      value={{
+        // Auth
+        currentUser,
+        isLoggedIn,
+        authLoading,
+        login,
+        finalizeLogin,
+        logout,
+        // Users
+        users,
+        pendingUsers,
+        activeUsers,
+        usersLoading,
+        loadUsers,
+        loadPendingUsers,
+        // Documents
+        documents,
+        activeDocuments,
+        trashedDocuments,
+        documentsLoading,
+        loadDocuments,
+        loadTrashedDocuments,
+        // Data non-document
+        rolePermissions,
+        // Notifications — Phase 7
+        notifications,
+        visibleNotifications,
+        notificationsLoading,
+        unreadCount,
+        loadNotifications,
+        customFolders,
+        // Auth actions
+        registerUser,
+        activateUser,
+        rejectRegistration,
+        // User actions
+        updateUserRole,
+        updateUserAvatar,
+        togglePermission,
+        addUser,
+        updateUser,
+        deleteUser,
+        updateProfile,
+        changePassword,
+        setTwoFactorEnabled,
+        // Document actions
+        hasPermission,
+        addAuditNote,
+        approveDocument,
+        rejectRequest,
+        approveRequest,
+        createApprovalRequest,
+        cancelApprovalRequest,
+        listApprovals,
+        rejectDocument,
+        uploadDocument,
+        getDownloadUrl,
+        replaceDocumentFile,
+        archiveDocument,
+        toggleFavorite,
+        editDocument,
+        moveDocument,
+        deleteDocument,
+        restoreDocument,
+        permanentlyDeleteDocument,
+        // Notification actions — Phase 7
+        markNotificationRead,
+        markAllNotificationsRead,
+        dismissNotification,
+        // Folder actions
+        createFolder,
+        editFolder,
+        deleteFolder,
+      }}
+    >
       {children}
     </AppContext.Provider>
   );
