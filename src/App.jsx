@@ -23,28 +23,57 @@ import ProfilePage from "@/pages/ProfilePage.jsx";
 import ChangePasswordPage from "@/pages/ChangePasswordPage.jsx";
 import HomeDashboardPage from "@/pages/HomeDashboardPage.jsx";
 import NotFound from "./pages/NotFound.jsx";
-import TrashPage from "@/pages/TrashPage.jsx"; // IMPORT ROUTE SAMPAH
+import TrashPage from "@/pages/TrashPage.jsx";
 
-const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false } },
+});
 
 function ProtectedRoute({ children }) {
-  const { isLoggedIn } = useApp();
-  // Jika refresh dan status login tidak ada di memori lokal, baru arahkan keluar
+  const { isLoggedIn, authLoading } = useApp();
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-muted-foreground">Memuat sesi…</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isLoggedIn) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
 function AppRoutes() {
-  const { isLoggedIn } = useApp();
-  
+  const { isLoggedIn, authLoading } = useApp();
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <Routes>
-      <Route path="/" element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <HomePage />} />
-      <Route path="/login" element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
-      <Route path="/signup" element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <SignUpPage />} />
+      <Route
+        path="/"
+        element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <HomePage />}
+      />
+      <Route
+        path="/login"
+        element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <LoginPage />}
+      />
+      <Route
+        path="/signup"
+        element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <SignUpPage />}
+      />
       <Route path="/verify-document/:id" element={<VerifyPage />} />
-      
-      {/* Rute yang Terlindungi dari pengguna yang belum login */}
+
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route path="/home" element={<HomeDashboardPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
@@ -61,7 +90,6 @@ function AppRoutes() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/change-password" element={<ChangePasswordPage />} />
       </Route>
-      
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

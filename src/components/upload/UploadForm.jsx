@@ -2,8 +2,6 @@ import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { Upload, Camera, X, Eye, FileText, CalendarIcon, ChevronDown, Maximize, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, RotateCw, AlertTriangle, Lock, Search } from "lucide-react";
 import CameraScanModal from "@/components/scan/CameraScanModal";
 import { useApp } from "@/contexts/AppContext";
-// OCR removed per requirements
-
 import PdfPreviewOverlay from "@/components/modals/PdfPreviewOverlay";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -12,7 +10,7 @@ import { CATEGORIES, DOCUMENT_TYPES, TAHUN_AJARAN_OPTIONS, CATEGORY_FORM_FIELDS,
 import { Calendar } from "@/components/ui/calendar";
 
 export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUploadOwn, lockedNip, lockedTypeId }) {
-  const { uploadDocument, currentUser, generateDocumentNumber, users } = useApp();
+  const { uploadDocument, currentUser, users } = useApp();
   
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -29,6 +27,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
   const [fullPreviewZoom, setFullPreviewZoom] = useState(100);
   const [fullPreviewPage, setFullPreviewPage] = useState(0);
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(null); // null = idle, 0-100 = uploading
 
   // Auto-fill category for teachers to 'Data Siswa' (category_id: 1)
   useEffect(() => {
@@ -124,14 +123,14 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
   }, [selectedCategoryId, selectedTypeId, metaData.tahunAjaran]);
 
   const handleFile = (f) => {
-    const maxSize = 10 * 1024 * 1024;
+    const maxSize = 25 * 1024 * 1024; // 25MB — konsisten dengan backend MAX_UPLOAD_MB
     const allowed = ["application/pdf", "image/jpeg", "image/png", "image/jpg"];
     if (!allowed.includes(f.type)) {
       toast({ title: "Format tidak didukung", description: "Hanya PDF, JPG, PNG yang diizinkan.", variant: "destructive" });
       return;
     }
     if (f.size > maxSize) {
-      toast({ title: "Ukuran terlalu besar", description: "Maksimal 10MB per file.", variant: "destructive" });
+      toast({ title: "Ukuran terlalu besar", description: "Maksimal 25MB per file.", variant: "destructive" });
       return;
     }
     setFile(f);
@@ -153,39 +152,121 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!form.judul || !form.nomorDokumen) return;
+    if (!form.judul) {
+      toast({ variant: "destructive", title: "Nama dokumen wajib diisi" });
+      return;
+    }
+    if (!selectedCategoryId) {
+      toast({ variant: "destructive", title: "Pilih kategori dokumen terlebih dahulu" });
+      return;
+    }
+    if (!selectedTypeId) {
+      toast({ variant: "destructive", title: "Pilih jenis dokumen terlebih dahulu" });
+      return;
+    }
+    if (!file) {
+      toast({ variant: "destructive", title: "File wajib dipilih", description: "Pilih file dokumen sebelum melanjutkan." });
+      return;
+    }
     setShowConfirm(true);
   };
 
-  const confirmUpload = () => {
+  const confirmUpload = async () => {
+    if (!file) {
+      toast({ variant: "destructive", title: "File wajib dipilih", description: "Pilih file dokumen sebelum mengunggah." });
+      setShowConfirm(false);
+      return;
+    }
+
     const folderId = getFolderIdForDocument(selectedCategoryId, selectedTypeId);
 
-    uploadDocument({
-      nomorDokumen: form.nomorDokumen,
-      judul: form.judul,
-      kategori: form.kategori || "-",
-      category_id: selectedCategoryId,
-      type_id: selectedTypeId,
-      folder_id: folderId,
-      jenisDokumen: form.jenisDokumen,
-      ...metaData,
-      kelas: metaData.kelas || "-",
-      class_info: metaData.kelas || "-",
-      namaSiswa: metaData.namaSiswa || "",
-      nisn: metaData.nisn || "",
-      tahunAjaran: metaData.tahunAjaran || "",
-      nip: metaData.restrictedNip || metaData.nip || "",
-      pengunggah: { id: currentUser.id, nama: currentUser.nama, role: currentUser.role, avatar: currentUser.avatar },
-      tanggalUpload: form.tanggalUpload.toISOString(),
-      fileUrl: filePreview || "/mock/sample.pdf",
-      catatan: form.catatan || undefined,
-      folderTujuan: autoFolderDisplay || undefined,
-      urgent: isUrgent,
-      sensitif: isSensitif,
-      ownerNIPs: isSensitif ? ownerNIPs : [],
-    });
+    // Susun metadata per kategori
+    const metadata = {};
+    if (selectedCategoryId === 1) {
+      Object.assign(metadata, {
+        namaSiswa: metaData.namaSiswa || "",
+        nis: metaData.nis || "",
+        nisn: metaData.nisn || "",
+        kelas: metaData.kelas || "",
+        tahunAjaran: metaData.tahunAjaran || "",
+        tempatLahir: metaData.tempatLahir || "",
+        tanggalLahir: metaData.tanggalLahir || "",
+        jenisKelamin: metaData.jenisKelamin || "",
+        namaOrangTua: metaData.namaOrangTua || "",
+        noHpOrangTua: metaData.noHpOrangTua || "",
+      });
+    } else if (selectedCategoryId === 2) {
+      Object.assign(metadata, {
+        namaGuru: metaData.namaGuru || metaData.nama || "",
+        nip: metaData.restrictedNip || metaData.nip || "",
+        nuptk: metaData.nuptk || "",
+        mataPelajaran: metaData.mataPelajaran || "",
+        pendidikanTerakhir: metaData.pendidikanTerakhir || "",
+        statusKepegawaian: metaData.statusKepegawaian || "",
+      });
+    } else if (selectedCategoryId === 3) {
+      Object.assign(metadata, {
+        kodeBarang: metaData.kodeBarang || "",
+        namaBarang: metaData.namaBarang || "",
+        jumlah: metaData.jumlah || "",
+        tahunPengadaan: metaData.tahunPengadaan || "",
+        kondisi: metaData.kondisi || "",
+        lokasi: metaData.lokasi || "",
+      });
+    } else if (selectedCategoryId === 4) {
+      if (selectedTypeId === 10) {
+        Object.assign(metadata, {
+          nomorAgenda: metaData.nomorAgenda || "",
+          nomorSurat: metaData.nomorSurat || "",
+          tanggalSurat: metaData.tanggalSurat || "",
+          tanggalDiterima: metaData.tanggalDiterima || "",
+          pengirim: metaData.pengirim || "",
+          perihal: metaData.perihal || "",
+        });
+      } else if (selectedTypeId === 11) {
+        Object.assign(metadata, {
+          nomorAgenda: metaData.nomorAgenda || "",
+          nomorSurat: metaData.nomorSurat || "",
+          tanggalSurat: metaData.tanggalSurat || "",
+          tujuan: metaData.tujuan || "",
+          perihal: metaData.perihal || "",
+          penandatangan: metaData.penandatangan || "",
+        });
+      } else if (selectedTypeId === 12) {
+        Object.assign(metadata, {
+          nomorSK: metaData.nomorSK || "",
+          tanggalSK: metaData.tanggalSK || "",
+          tentang: metaData.tentang || "",
+          penandatangan: metaData.penandatangan || "",
+        });
+      }
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("judul", form.judul);
+    formData.append("category_id", selectedCategoryId);
+    formData.append("type_id", selectedTypeId);
+    if (folderId) formData.append("folder_id", folderId);
+    if (metaData.tahunAjaran) formData.append("tahun_ajaran", metaData.tahunAjaran);
+    if (form.catatan) formData.append("catatan", form.catatan);
+    formData.append("metadata", JSON.stringify(metadata));
 
     setShowConfirm(false);
+    setUploadProgress(0);
+    const result = await uploadDocument(formData, (pct) => setUploadProgress(pct));
+    setUploadProgress(null);
+
+    if (!result.ok) {
+      setUploadProgress(null);
+      toast({
+        variant: "destructive",
+        title: "❌ Gagal Mengunggah",
+        description: result.error || "Terjadi kesalahan saat upload.",
+      });
+      return;
+    }
+
     toast({
       title: "✓ Dokumen Berhasil Diunggah",
       description: (
@@ -394,7 +475,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
             >
               <Upload size={40} className="mx-auto text-muted-foreground mb-3" />
               <p className="text-sm text-foreground">Seret file ke sini atau <span className="text-primary font-semibold">klik untuk memilih</span></p>
-              <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG (maks. 10MB)</p>
+              <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG, DOC, DOCX, XLS, XLSX (maks. 25MB)</p>
             </div>
             <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
 
@@ -544,7 +625,8 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
                   setMetaData({});
                   update("kategori", cat?.category_name || "");
                   update("jenisDokumen", "");
-                  update("nomorDokumen", "");
+                  // FIX: nomorDokumen tidak direset saat ganti kategori —
+                  // nomor dokumen adalah input independen yang diisi user secara manual.
                 }} className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
                   <option value="">Pilih kategori</option>
                   {CATEGORIES.map((c) => <option key={c.category_id} value={c.category_id}>{c.category_name}</option>)}
@@ -628,13 +710,46 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
             </div>
           )}
 
+          {/* Upload Progress Bar */}
+          {uploadProgress !== null && (
+            <div className="rounded-xl border border-border bg-card p-4 space-y-2 animate-fade-in">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium text-foreground flex items-center gap-2">
+                  <span className="inline-block w-3 h-3 rounded-full bg-primary animate-pulse" />
+                  {uploadProgress < 100 ? "Mengunggah ke Azure Storage..." : "Menyimpan ke database..."}
+                </span>
+                <span className="font-bold text-primary">{uploadProgress}%</span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+              {uploadProgress < 100 && (
+                <p className="text-xs text-muted-foreground">
+                  Jangan tutup halaman ini saat upload sedang berlangsung.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Submit button */}
           <div className="flex gap-3">
             {onCancel && (
-              <button type="button" onClick={onCancel} className="flex-1 py-3 rounded-lg border border-input text-sm font-semibold hover:bg-muted transition-colors">Batal</button>
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={uploadProgress !== null}
+                className="flex-1 py-3 rounded-lg border border-input text-sm font-semibold hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >Batal</button>
             )}
-            <button type="submit" className={`${onCancel ? "flex-1" : "w-full"} flex items-center justify-center gap-2 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:opacity-90 transition-opacity`}>
-              <Upload size={18} /> Upload Dokumen
+            <button
+              type="submit"
+              disabled={uploadProgress !== null}
+              className={`${onCancel ? "flex-1" : "w-full"} flex items-center justify-center gap-2 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              <Upload size={18} /> {uploadProgress !== null ? "Mengunggah..." : "Upload Dokumen"}
             </button>
           </div>
         </div>

@@ -21,10 +21,10 @@ function makePetal(ox, oy) {
   return {
     xPct,
     yPct,
-    x: 0, // will be set on first frame
+    x: 0, 
     y: 0,
     size: 8 + Math.random() * 12,
-    speed: 0.4 + Math.random() * 0.5, // px per frame at 60fps
+    speed: 0.4 + Math.random() * 0.5, 
     swayAmp: 30 + Math.random() * 60,
     swayFreq: 0.005 + Math.random() * 0.008,
     rot: 0,

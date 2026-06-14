@@ -1,88 +1,561 @@
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { useState, useMemo } from "react";
-import { CalendarDays, Check, ChevronDown } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { format, startOfWeek, endOfWeek, addDays, eachDayOfInterval, startOfMonth, eachMonthOfInterval } from "date-fns";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { CalendarDays, RefreshCw, AlertCircle } from "lucide-react";
+import { format, startOfWeek, endOfWeek, addDays, startOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
+import { getChartData } from "@/services/dashboardService";
 
 const STATUS_COLORS = {
-  Disetujui: "hsl(142 71% 35%)",
-  Ditolak: "hsl(0 72% 51%)",
-  Menunggu: "hsl(38 92% 50%)",
+  Menunggu:   "hsl(38 92% 50%)",
+  Diarsipkan: "hsl(142 71% 35%)",
+  Ditolak:    "hsl(0 72% 51%)",
 };
 
-const HARI = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
-const BULAN_SHORT = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+const BULAN_ID    = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+const BULAN_SHORT = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+const HARI        = ["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
+const DAYS_HEADER = ["Su","Mo","Tu","We","Th","Fr","Sa"];
 
-function generateDataForRange(startDate, endDate) {
-  const days = eachDayOfInterval({ start: startDate, end: endDate });
-  const labels = [];
-  const dates = [];
-  const seed = [3, 5, 2, 4, 6, 3, 2, 4, 1, 3, 5, 2, 6, 3, 4, 2, 5, 3, 1, 4, 6, 2, 3, 5, 4, 2, 3, 1, 4, 5, 2];
+function formatDateLabel(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  return `${HARI[d.getDay()]}, ${d.getDate()} ${BULAN_SHORT[d.getMonth()]}`;
+}
+function formatMonthLabel(monthStr) {
+  const [y, m] = monthStr.split("-");
+  return `${BULAN_SHORT[Number(m) - 1]} ${y}`;
+}
+const fmt = (d) => d.toISOString().split("T")[0];
+const fmtDisplay = (iso) => {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+};
 
-  days.forEach((d, i) => {
-    const dayName = HARI[d.getDay()];
-    const bulan = BULAN_SHORT[d.getMonth()];
-    labels.push(`${dayName}, ${d.getDate()} ${bulan}`);
-    dates.push(format(d, "yyyy-MM-dd"));
-  });
+// ── Smart Dual-Calendar Date Range Picker ─────────────────────────────────────
+function SmartDateRangePicker({ value, onChange, label }) {
+  const today      = new Date();
+  const todayStr   = fmt(today);
+  const [open, setOpen]         = useState(false);
+  const [selecting, setSelecting] = useState("from"); // "from" | "to"
+  const [hovered,   setHovered]   = useState(null);
+  const [draft,     setDraft]     = useState(value);
+  const [viewYear,  setViewYear]  = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth() > 0 ? today.getMonth() - 1 : 0);
+  const [popupPos,  setPopupPos]  = useState({ top: 0, left: 0 });
 
-  return {
-    labels,
-    dates,
-    disetujui: days.map((_, i) => [1, 2, 1, 1, 2, 1, 1, 2, 0, 1, 2, 1, 3, 1, 2, 1, 2, 1, 0, 1, 3, 1, 1, 2, 2, 1, 1, 0, 2, 2, 1][i % 31]),
-    ditolak: days.map((_, i) => [0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0][i % 31]),
-    menunggu: days.map((_, i) => [2, 2, 0, 3, 4, 1, 1, 2, 0, 2, 2, 1, 3, 1, 2, 0, 3, 2, 0, 3, 3, 0, 2, 3, 1, 1, 1, 1, 2, 2, 1][i % 31]),
+  const btnRef   = useRef(null);
+  const popupRef = useRef(null);
+
+  useEffect(() => { setDraft(value); }, [value]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (!popupRef.current?.contains(e.target) && !btnRef.current?.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear((y) => y - 1); }
+    else setViewMonth((m) => m - 1);
   };
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear((y) => y + 1); }
+    else setViewMonth((m) => m + 1);
+  };
+
+  // Hitung hari dalam bulan
+  const buildCalendar = (year, month) => {
+    const first = new Date(year, month, 1).getDay();
+    const total = new Date(year, month + 1, 0).getDate();
+    const cells = Array(first).fill(null);
+    for (let d = 1; d <= total; d++) {
+      cells.push(`${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+    }
+    return cells;
+  };
+
+  const isInRange = (dateStr) => {
+    if (!draft.from) return false;
+    const t = draft.to || hovered || "";
+    if (!t) return false;
+    const [lo, hi] = draft.from <= t ? [draft.from, t] : [t, draft.from];
+    return dateStr > lo && dateStr < hi;
+  };
+  const isStart = (d) => d === draft.from;
+  const isEnd   = (d) => d === (draft.to || hovered || "");
+
+  const handleDay = (dateStr) => {
+    if (dateStr > todayStr) return;
+    if (selecting === "from") {
+      setDraft({ from: dateStr, to: "" });
+      setSelecting("to");
+    } else {
+      const [from, to] = draft.from <= dateStr ? [draft.from, dateStr] : [dateStr, draft.from];
+      setDraft({ from, to });
+      setSelecting("from");
+    }
+  };
+
+  const apply = () => {
+    if (draft.from && draft.to) {
+      onChange(draft);
+      setOpen(false);
+    }
+  };
+
+  const reset = () => {
+    const def = {
+      from: fmt(new Date(today.getFullYear(), today.getMonth(), 1)),
+      to:   todayStr,
+    };
+    setDraft(def);
+    onChange(def);
+    setSelecting("from");
+    setOpen(false);
+  };
+
+  const openPicker = () => {
+    const rect = btnRef.current?.getBoundingClientRect();
+    if (rect) {
+      const popupW = 560, popupH = 420, gap = 8;
+      let top  = rect.bottom + gap;
+      let left = rect.right - popupW;
+      if (window.innerHeight - rect.bottom < popupH && rect.top > popupH) {
+        top = rect.top - popupH - gap;
+      }
+      left = Math.max(8, Math.min(left, window.innerWidth - popupW - 8));
+      top  = Math.max(8, top);
+      setPopupPos({ top, left });
+    }
+    setDraft(value);
+    setSelecting("from");
+    setOpen((o) => !o);
+  };
+
+  const rightYear  = viewMonth === 11 ? viewYear + 1 : viewYear;
+  const rightMonth = viewMonth === 11 ? 0 : viewMonth + 1;
+
+  const displayLabel = value.from && value.to
+    ? `${fmtDisplay(value.from)} - ${fmtDisplay(value.to)}`
+    : label || "Pilih rentang tanggal";
+
+  // ── Render satu grid kalender ────────────────────────────────────────────
+  const renderCalendar = (year, month, showLeft, showRight) => {
+    const cells = buildCalendar(year, month);
+    return (
+      <div>
+        {/* Bulan header */}
+        <div className="flex items-center justify-between mb-3">
+          {showLeft ? (
+            <button
+              onClick={prevMonth}
+              className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+          ) : <span className="w-7" />}
+
+          <span className="text-sm font-bold text-foreground">
+            {BULAN_ID[month]} {year}
+          </span>
+
+          {showRight ? (
+            <button
+              onClick={nextMonth}
+              className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          ) : <span className="w-7" />}
+        </div>
+
+        {/* Grid hari */}
+        <div className="grid grid-cols-7 gap-0.5">
+          {DAYS_HEADER.map((d) => (
+            <div key={d} className="text-center text-[10px] font-semibold text-muted-foreground py-1">
+              {d}
+            </div>
+          ))}
+          {cells.map((dateStr, i) => {
+            if (!dateStr) return <div key={`e-${i}`} />;
+            const start    = isStart(dateStr);
+            const end      = isEnd(dateStr);
+            const inRange  = isInRange(dateStr);
+            const isFuture = dateStr > todayStr;
+            const isToday  = dateStr === todayStr;
+
+            return (
+              <button
+                key={dateStr}
+                disabled={isFuture}
+                onClick={() => handleDay(dateStr)}
+                onMouseEnter={() => selecting === "to" && !isFuture && setHovered(dateStr)}
+                onMouseLeave={() => setHovered(null)}
+                className={cn(
+                  "text-center text-xs py-1.5 font-medium transition-all rounded-lg",
+                  isFuture ? "text-muted-foreground/30 cursor-not-allowed" : "cursor-pointer hover:bg-primary/10",
+                  (start || end) && "!text-primary-foreground font-bold",
+                  inRange && !start && !end && "!rounded-none bg-primary/10 text-primary",
+                  isToday && !start && !end && "ring-1 ring-primary/40 text-primary font-semibold",
+                )}
+                style={
+                  start || end
+                    ? { background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }
+                    : undefined
+                }
+              >
+                {parseInt(dateStr.split("-")[2])}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      {/* Trigger button */}
+      <button
+        ref={btnRef}
+        onClick={openPicker}
+        className="flex items-center gap-1.5 border border-border rounded-md px-2.5 py-1.5 hover:bg-muted transition-colors bg-card"
+      >
+        <CalendarDays size={14} className="text-primary" />
+        <span className="text-xs font-medium text-foreground">{displayLabel}</span>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-muted-foreground ml-0.5">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {/* Portal popup */}
+      {open && (
+        <div
+          ref={popupRef}
+          style={{
+            position: "fixed",
+            top:      popupPos.top,
+            left:     popupPos.left,
+            zIndex:   9999,
+            width:    560,
+          }}
+          className="bg-card border border-border rounded-2xl shadow-2xl p-5"
+        >
+          {/* Instruksi */}
+          <p className="text-[10px] font-semibold text-muted-foreground mb-4 text-center uppercase tracking-widest">
+            {selecting === "from" ? "Pilih Tanggal Mulai" : "Pilih Tanggal Akhir"}
+          </p>
+
+          {/* Dual calendar */}
+          <div className="grid grid-cols-2 gap-6">
+            {renderCalendar(viewYear,  viewMonth,  true,  false)}
+            {renderCalendar(rightYear, rightMonth, false, true)}
+          </div>
+
+          {/* Footer actions */}
+          <div className="flex items-center justify-end gap-3 mt-5 pt-4 border-t border-border">
+            <button
+              onClick={reset}
+              className="px-4 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Reset
+            </button>
+            <button
+              onClick={() => setOpen(false)}
+              className="px-4 py-1.5 text-xs font-medium rounded-lg border border-border text-muted-foreground hover:border-border/80 hover:bg-muted transition-colors"
+            >
+              Batal
+            </button>
+            <button
+              onClick={apply}
+              disabled={!draft.from || !draft.to}
+              className="px-5 py-1.5 text-xs font-semibold rounded-lg bg-primary text-primary-foreground transition-opacity disabled:opacity-40 hover:opacity-90"
+            >
+              Terapkan
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
 
-function generateMonthlyAggData(startMonth, endMonth) {
-  const months = eachMonthOfInterval({ start: startMonth, end: endMonth });
-  const labels = [];
-  const dates = [];
-  const seed = [45, 52, 38, 61, 55, 42, 48, 35, 58, 44, 50, 40];
+// ── Month Range Picker (tetap list, tapi diperbaiki tampilannya) ───────────────
+function MonthRangePicker({ monthFrom, monthTo, onApply }) {
+  const today       = new Date();
+  const currentYear = today.getFullYear();
+  const todayMonth  = fmt(new Date(today.getFullYear(), today.getMonth(), 1)); 
 
-  months.forEach((m) => {
-    labels.push(`${BULAN_SHORT[m.getMonth()]} ${m.getFullYear()}`);
-    dates.push(format(m, "yyyy-MM"));
+  const [open,      setOpen]      = useState(false);
+  const [selecting, setSelecting] = useState("from"); 
+  const [hovered,   setHovered]   = useState(null);
+  const [draft,     setDraft]     = useState({
+    from: fmt(monthFrom),
+    to:   fmt(monthTo),
   });
+  const [viewYear,  setViewYear]  = useState(currentYear - 1); 
+  const [popupPos,  setPopupPos]  = useState({ top: 0, left: 0 });
 
-  return {
-    labels,
-    dates,
-    disetujui: months.map((_, i) => Math.floor(seed[i % seed.length] * 0.4)),
-    ditolak: months.map((_, i) => Math.floor(seed[i % seed.length] * 0.1)),
-    menunggu: months.map((_, i) => Math.floor(seed[i % seed.length] * 0.25)),
+  const btnRef   = useRef(null);
+  const popupRef = useRef(null);
+
+  // Konversi Date → "YYYY-MM-01"
+  const toMonthStr = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+
+  useEffect(() => {
+    setDraft({ from: toMonthStr(monthFrom), to: toMonthStr(monthTo) });
+  }, [monthFrom, monthTo]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (!popupRef.current?.contains(e.target) && !btnRef.current?.contains(e.target))
+        setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const openPicker = () => {
+    const rect = btnRef.current?.getBoundingClientRect();
+    if (rect) {
+      const popupW = 480, popupH = 360, gap = 8;
+      let top  = rect.bottom + gap;
+      let left = rect.right - popupW;
+      if (window.innerHeight - rect.bottom < popupH && rect.top > popupH)
+        top = rect.top - popupH - gap;
+      left = Math.max(8, Math.min(left, window.innerWidth - popupW - 8));
+      top  = Math.max(8, top);
+      setPopupPos({ top, left });
+    }
+    setDraft({ from: toMonthStr(monthFrom), to: toMonthStr(monthTo) });
+    setSelecting("from");
+    setOpen((o) => !o);
   };
+
+  const addMonths = (ms, n) => {
+    const d = new Date(ms);
+    d.setMonth(d.getMonth() + n);
+    return toMonthStr(d);
+  };
+
+  const isInRange = (ms) => {
+    if (!draft.from) return false;
+    const t = draft.to || hovered || "";
+    if (!t) return false;
+    const [lo, hi] = draft.from <= t ? [draft.from, t] : [t, draft.from];
+    return ms > lo && ms < hi;
+  };
+  const isStart = (ms) => ms === draft.from;
+  const isEnd   = (ms) => ms === (draft.to || hovered || "");
+
+  const handleCell = (ms) => {
+    if (ms > todayMonth) return;
+    if (selecting === "from") {
+      setDraft({ from: ms, to: "" });
+      setSelecting("to");
+    } else {
+      let [f, t] = draft.from <= ms ? [draft.from, ms] : [ms, draft.from];
+      if (f === t) t = addMonths(f, 1); 
+      setDraft({ from: f, to: t });
+      setSelecting("from");
+    }
+  };
+
+  const apply = () => {
+    if (draft.from && draft.to) {
+      onApply(new Date(draft.from), new Date(draft.to));
+      setOpen(false);
+    }
+  };
+
+  const reset = () => {
+    const f = toMonthStr(new Date(today.getFullYear(), today.getMonth() - 2, 1));
+    const t = todayMonth;
+    setDraft({ from: f, to: t });
+    onApply(new Date(f), new Date(t));
+    setOpen(false);
+  };
+
+  const renderYear = (year) => {
+    const isPrevYear = year === viewYear;
+    const isNextYear = year === viewYear + 1;
+    return (
+      <div>
+        {/* Tahun header */}
+        <div className="flex items-center justify-between mb-3">
+          {isPrevYear ? (
+            <button
+              onClick={() => setViewYear((y) => y - 1)}
+              className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+          ) : <span className="w-7" />}
+
+          <span className="text-sm font-bold text-foreground">{year}</span>
+
+          {isNextYear ? (
+            <button
+              onClick={() => setViewYear((y) => y + 1)}
+              disabled={viewYear + 1 >= currentYear}
+              className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground disabled:opacity-30"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          ) : <span className="w-7" />}
+        </div>
+
+        <div className="grid grid-cols-3 gap-1">
+          {BULAN_SHORT.map((bln, m) => {
+            const ms       = `${year}-${String(m + 1).padStart(2, "0")}-01`;
+            const start    = isStart(ms);
+            const end      = isEnd(ms);
+            const inRange  = isInRange(ms);
+            const isFuture = ms > todayMonth;
+
+            return (
+              <button
+                key={ms}
+                disabled={isFuture}
+                onClick={() => handleCell(ms)}
+                onMouseEnter={() => selecting === "to" && !isFuture && setHovered(ms)}
+                onMouseLeave={() => setHovered(null)}
+                className={cn(
+                  "py-1.5 px-1 rounded-lg text-[11px] font-medium transition-all text-center",
+                  isFuture ? "text-muted-foreground/30 cursor-not-allowed" : "cursor-pointer hover:bg-primary/10",
+                  (start || end) && "!text-primary-foreground font-bold",
+                  inRange && !start && !end && "bg-primary/10 text-primary !rounded-none",
+                )}
+                style={
+                  start || end
+                    ? { background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }
+                    : undefined
+                }
+              >
+                {bln}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const monthLabel = `${format(monthFrom, "MMM yyyy")} - ${format(monthTo, "MMM yyyy")}`;
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        onClick={openPicker}
+        className="flex items-center gap-1.5 border border-border rounded-md px-2.5 py-1.5 hover:bg-muted transition-colors bg-card"
+      >
+        <CalendarDays size={14} className="text-muted-foreground" />
+        <span className="text-xs font-medium text-foreground">{monthLabel}</span>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-muted-foreground ml-0.5">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {open && (
+        <div
+          ref={popupRef}
+          style={{ position: "fixed", top: popupPos.top, left: popupPos.left, zIndex: 9999, width: 480 }}
+          className="bg-card border border-border rounded-2xl shadow-2xl p-5"
+        >
+          <p className="text-[10px] font-semibold text-muted-foreground mb-4 text-center uppercase tracking-widest">
+            {selecting === "from" ? "Pilih Bulan Mulai" : "Pilih Bulan Akhir (min. 2 bulan)"}
+          </p>
+
+          <div className="grid grid-cols-2 gap-6">
+            {renderYear(viewYear)}
+            {renderYear(viewYear + 1)}
+          </div>
+
+          <div className="flex items-center justify-end gap-3 mt-5 pt-4 border-t border-border">
+            <button
+              onClick={reset}
+              className="px-4 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Reset
+            </button>
+            <button
+              onClick={() => setOpen(false)}
+              className="px-4 py-1.5 text-xs font-medium rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors"
+            >
+              Batal
+            </button>
+            <button
+              onClick={apply}
+              disabled={!draft.from || !draft.to}
+              className="px-5 py-1.5 text-xs font-semibold rounded-lg bg-primary text-primary-foreground transition-opacity disabled:opacity-40 hover:opacity-90"
+            >
+              Terapkan
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
 
-export default function ActivityChart({ onDateClick, onStatusClick }) {
+// ── Main Component ────────────────────────────────────────────────────────────
+export default function ActivityChart({ onDateClick }) {
   const today = new Date();
+
   const [period, setPeriod] = useState("weekly");
-  const [weekStart, setWeekStart] = useState(startOfWeek(today, { weekStartsOn: 1 }));
-  const [weekEnd, setWeekEnd] = useState(endOfWeek(today, { weekStartsOn: 1 }));
-  const [weekPickerOpen, setWeekPickerOpen] = useState(false);
-  const [weekRangeStep, setWeekRangeStep] = useState("from");
-  const [tempWeekStart, setTempWeekStart] = useState(weekStart);
+
+  // Weekly range state
+  const [weekRange, setWeekRange] = useState({
+    from: fmt(startOfWeek(today, { weekStartsOn: 1 })),
+    to:   fmt(endOfWeek(today,   { weekStartsOn: 1 })),
+  });
+
+  // Monthly range state
   const [monthFrom, setMonthFrom] = useState(startOfMonth(addDays(today, -60)));
-  const [monthTo, setMonthTo] = useState(startOfMonth(today));
-  const [monthPickerOpen, setMonthPickerOpen] = useState(false);
-  const [monthPickerStep, setMonthPickerStep] = useState("from");
-  const [visibleLines, setVisibleLines] = useState(new Set(["Disetujui", "Ditolak", "Menunggu"]));
+  const [monthTo,   setMonthTo]   = useState(startOfMonth(today));
 
-  const source = useMemo(() => {
-    if (period === "weekly") return generateDataForRange(weekStart, weekEnd);
-    return generateMonthlyAggData(monthFrom, monthTo);
-  }, [period, weekStart, weekEnd, monthFrom, monthTo]);
+  const [chartData,     setChartData]     = useState([]);
+  const [loading,       setLoading]       = useState(false);
+  const [error,         setError]         = useState(null);
+  const [visibleLines,  setVisibleLines]  = useState(new Set(["Menunggu", "Diarsipkan", "Ditolak"]));
 
-  const data = source.labels.map((label, i) => ({
-    name: label,
-    date: source.dates[i],
-    Disetujui: source.disetujui[i],
-    Ditolak: source.ditolak[i],
-    Menunggu: source.menunggu[i],
-  }));
+  const fetchChart = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const fromStr = period === "weekly" ? weekRange.from : fmt(monthFrom);
+      const toStr   = period === "weekly" ? weekRange.to   : fmt(monthTo);
+
+      const result = await getChartData({ period, from: fromStr, to: toStr });
+
+      const transformed = (result.data || []).map((row) =>
+        period === "weekly"
+          ? { name: formatDateLabel(row.date),   date: row.date,  Menunggu: row.Menunggu || 0, Diarsipkan: row.Diarsipkan || 0, Ditolak: row.Ditolak || 0 }
+          : { name: formatMonthLabel(row.month), date: row.month, Menunggu: row.Menunggu || 0, Diarsipkan: row.Diarsipkan || 0, Ditolak: row.Ditolak || 0 }
+      );
+      setChartData(transformed);
+    } catch (err) {
+      setError(err.message || "Gagal memuat data chart");
+    } finally {
+      setLoading(false);
+    }
+  }, [period, weekRange, monthFrom, monthTo]);
+
+  useEffect(() => { fetchChart(); }, [fetchChart]);
 
   const handleDotClick = (status) => (payload) => {
     if (payload?.payload?.date) onDateClick(payload.payload.date, status);
@@ -98,37 +571,6 @@ export default function ActivityChart({ onDateClick, onStatusClick }) {
       return next;
     });
   };
-
-  const handleWeekDateSelect = (date) => {
-    if (!date) return;
-    if (weekRangeStep === "from") {
-      setTempWeekStart(date);
-      setWeekRangeStep("to");
-    } else {
-      const start = tempWeekStart || date;
-      const end = date;
-      const [s, e] = start <= end ? [start, end] : [end, start];
-      const maxEnd = addDays(s, 6);
-      setWeekStart(s);
-      setWeekEnd(e > maxEnd ? maxEnd : e);
-      setWeekRangeStep("from");
-      setWeekPickerOpen(false);
-    }
-  };
-
-  const currentYear = today.getFullYear();
-  const monthOptions = useMemo(() => {
-    const opts = [];
-    for (let y = currentYear - 1; y <= currentYear + 1; y++) {
-      for (let m = 0; m < 12; m++) {
-        opts.push({ label: `${BULAN_SHORT[m]} ${y}`, date: new Date(y, m, 1) });
-      }
-    }
-    return opts;
-  }, [currentYear]);
-
-  const weekLabel = `${format(weekStart, "dd MMM")} - ${format(weekEnd, "dd MMM yyyy")}`;
-  const monthLabel = `${format(monthFrom, "MMM yyyy")} - ${format(monthTo, "MMM yyyy")}`;
 
   const renderLegend = (props) => {
     const { payload } = props;
@@ -153,6 +595,7 @@ export default function ActivityChart({ onDateClick, onStatusClick }) {
 
   return (
     <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
         <div>
           <h3 className="text-base sm:text-lg font-bold text-foreground">
@@ -162,85 +605,99 @@ export default function ActivityChart({ onDateClick, onStatusClick }) {
             Klik titik grafik untuk melihat dokumen, klik legend untuk toggle
           </p>
         </div>
+
         <div className="flex flex-wrap items-center gap-2">
+          {/* Period toggle */}
           <div className="flex gap-1 bg-muted rounded-lg p-1">
-            <button onClick={() => setPeriod("weekly")} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${period === "weekly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Mingguan</button>
-            <button onClick={() => setPeriod("monthly")} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${period === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Bulanan</button>
+            <button
+              onClick={() => setPeriod("weekly")}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                period === "weekly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Mingguan
+            </button>
+            <button
+              onClick={() => setPeriod("monthly")}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                period === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Bulanan
+            </button>
           </div>
 
+          {error && (
+            <button
+              onClick={fetchChart}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs bg-destructive/10 text-destructive hover:bg-destructive/20"
+            >
+              <RefreshCw size={12} /> Coba Lagi
+            </button>
+          )}
+
+          {/* Date pickers — SmartDateRangePicker (weekly) & MonthRangePicker (monthly) */}
           {period === "weekly" ? (
-            <Popover open={weekPickerOpen} onOpenChange={(o) => { setWeekPickerOpen(o); if (o) setWeekRangeStep("from"); }}>
-              <PopoverTrigger asChild>
-                <button className="flex items-center gap-1.5 border border-border rounded-md px-2.5 py-1.5 hover:bg-muted transition-colors">
-                  <CalendarDays size={14} className="text-primary" />
-                  <span className="text-xs font-medium text-foreground">{weekLabel}</span>
-                  <ChevronDown size={12} className="text-muted-foreground" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-3 z-50 bg-popover" align="end" sideOffset={4}>
-                <p className="text-xs font-semibold text-foreground mb-2">
-                  {weekRangeStep === "from" ? "Pilih tanggal mulai" : "Pilih tanggal akhir (maks 7 hari)"}
-                </p>
-                <Calendar mode="single" selected={weekRangeStep === "from" ? tempWeekStart : undefined} onSelect={handleWeekDateSelect} initialFocus className={cn("p-3 pointer-events-auto")} />
-              </PopoverContent>
-            </Popover>
+            <SmartDateRangePicker
+              value={weekRange}
+              onChange={setWeekRange}
+            />
           ) : (
-            <Popover open={monthPickerOpen} onOpenChange={(o) => { setMonthPickerOpen(o); if (o) setMonthPickerStep("from"); }}>
-              <PopoverTrigger asChild>
-                <button className="flex items-center gap-1.5 border border-border rounded-md px-2.5 py-1.5 hover:bg-muted transition-colors">
-                  <CalendarDays size={14} className="text-muted-foreground" />
-                  <span className="text-xs font-medium text-foreground">{monthLabel}</span>
-                  <ChevronDown size={12} className="text-muted-foreground" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-56 p-2 z-50 bg-popover max-h-64 overflow-y-auto" align="end" sideOffset={4}>
-                <p className="text-xs font-semibold text-foreground mb-2 px-2 pt-1">
-                  {monthPickerStep === "from" ? "Bulan mulai" : "Bulan akhir"}
-                </p>
-                {monthOptions.map((opt) => (
-                  <button key={opt.label} onClick={() => {
-                    if (monthPickerStep === "from") { setMonthFrom(opt.date); setMonthPickerStep("to"); }
-                    else { setMonthTo(opt.date >= monthFrom ? opt.date : monthFrom); setMonthPickerStep("from"); setMonthPickerOpen(false); }
-                  }}
-                    className={cn("w-full flex items-center justify-between px-3 py-2 text-xs rounded-md transition-colors",
-                      (monthPickerStep === "from" && opt.date.getTime() === monthFrom.getTime()) || (monthPickerStep === "to" && opt.date.getTime() === monthTo.getTime())
-                        ? "bg-primary/10 text-primary font-semibold" : "text-foreground hover:bg-muted"
-                    )}>
-                    {opt.label}
-                    {((monthPickerStep === "from" && opt.date.getTime() === monthFrom.getTime()) || (monthPickerStep === "to" && opt.date.getTime() === monthTo.getTime())) && <Check size={14} />}
-                  </button>
-                ))}
-              </PopoverContent>
-            </Popover>
+            <MonthRangePicker
+              monthFrom={monthFrom}
+              monthTo={monthTo}
+              onApply={(f, t) => { setMonthFrom(f); setMonthTo(t); }}
+            />
           )}
         </div>
       </div>
 
-      <ResponsiveContainer width="100%" height={300}>
-        <AreaChart data={data} style={{ cursor: "pointer" }}>
-          <defs>
-            {Object.entries(STATUS_COLORS).map(([key, color]) => (
-              <linearGradient key={key} id={`gradient-${key}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={color} stopOpacity={0.15} />
-                <stop offset="95%" stopColor={color} stopOpacity={0} />
-              </linearGradient>
+      {/* Chart area */}
+      {loading ? (
+        <div className="h-[300px] flex items-center justify-center">
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+            <RefreshCw size={24} className="animate-spin" />
+            <span className="text-sm">Memuat data grafik…</span>
+          </div>
+        </div>
+      ) : error ? (
+        <div className="h-[300px] flex items-center justify-center">
+          <div className="flex flex-col items-center gap-2 text-destructive">
+            <AlertCircle size={24} />
+            <span className="text-sm">{error}</span>
+          </div>
+        </div>
+      ) : chartData.length === 0 ? (
+        <div className="h-[300px] flex items-center justify-center text-muted-foreground text-sm">
+          Tidak ada data pada periode ini.
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height={300}>
+          <AreaChart data={chartData} style={{ cursor: "pointer" }}>
+            <defs>
+              {Object.entries(STATUS_COLORS).map(([key, color]) => (
+                <linearGradient key={key} id={`gradient-${key}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor={color} stopOpacity={0.15} />
+                  <stop offset="95%" stopColor={color} stopOpacity={0} />
+                </linearGradient>
+              ))}
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(340 12% 90%)" />
+            <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="hsl(220 10% 46%)" angle={-25} textAnchor="end" height={60} interval={chartData.length > 14 ? 2 : 0} />
+            <YAxis tick={{ fontSize: 12 }} stroke="hsl(220 10% 46%)" allowDecimals={false} />
+            <Tooltip contentStyle={{ backgroundColor: "hsl(0 0% 100%)", border: "1px solid hsl(340 12% 90%)", borderRadius: "8px", fontSize: "13px" }} />
+            <Legend content={renderLegend} />
+            {["Menunggu", "Diarsipkan", "Ditolak"].map((key) => (
+              <Area key={key} type="monotone" dataKey={key} stroke={STATUS_COLORS[key]} fill={`url(#gradient-${key})`}
+                strokeWidth={visibleLines.has(key) ? 2 : 0} fillOpacity={visibleLines.has(key) ? 1 : 0}
+                dot={visibleLines.has(key) ? { r: 4, fill: STATUS_COLORS[key] } : false}
+                activeDot={visibleLines.has(key) ? { r: 6, onClick: handleDotClick(key), cursor: "pointer" } : false}
+                hide={!visibleLines.has(key)}
+              />
             ))}
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(340 12% 90%)" />
-          <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="hsl(220 10% 46%)" angle={-25} textAnchor="end" height={60} interval={data.length > 14 ? 2 : 0} />
-          <YAxis tick={{ fontSize: 12 }} stroke="hsl(220 10% 46%)" />
-          <Tooltip contentStyle={{ backgroundColor: "hsl(0 0% 100%)", border: "1px solid hsl(340 12% 90%)", borderRadius: "8px", fontSize: "13px" }} />
-          <Legend content={renderLegend} />
-          {["Disetujui", "Ditolak", "Menunggu"].map((key) => (
-            <Area key={key} type="monotone" dataKey={key} stroke={STATUS_COLORS[key]} fill={`url(#gradient-${key})`}
-              strokeWidth={visibleLines.has(key) ? 2 : 0} fillOpacity={visibleLines.has(key) ? 1 : 0}
-              dot={visibleLines.has(key) ? { r: 4, fill: STATUS_COLORS[key] } : false}
-              activeDot={visibleLines.has(key) ? { r: 6, onClick: handleDotClick(key), cursor: "pointer" } : false}
-              hide={!visibleLines.has(key)}
-            />
-          ))}
-        </AreaChart>
-      </ResponsiveContainer>
+          </AreaChart>
+        </ResponsiveContainer>
+      )}
     </div>
   );
 }

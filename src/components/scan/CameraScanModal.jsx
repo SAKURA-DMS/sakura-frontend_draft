@@ -27,7 +27,9 @@ export default function CameraScanModal({ onClose, onComplete }) {
         video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
       });
       setStream(mediaStream);
-      if (videoRef.current) videoRef.current.srcObject = mediaStream;
+      // FIX: jangan set srcObject di sini — <video> mungkin belum dirender
+      // (isCameraActive masih false → videoRef.current = null → layar putih).
+      // srcObject di-assign via useEffect setelah stream state berubah & video sudah mounted.
       setIsCameraActive(true);
     } catch {
       alert("Kamera tidak tersedia pada perangkat ini.");
@@ -44,6 +46,15 @@ export default function CameraScanModal({ onClose, onComplete }) {
     startCamera();
     return () => { stream?.getTracks().forEach((t) => t.stop()); };
   }, []);
+
+  // FIX: Set srcObject setiap kali stream berubah, SETELAH <video> sudah dirender.
+  // Ini mengatasi race condition: stream tersedia sebelum elemen <video> ada di DOM.
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [stream, isCameraActive]);
 
   const capturePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return;
@@ -157,10 +168,18 @@ export default function CameraScanModal({ onClose, onComplete }) {
   const renderCamera = () => (
     <>
       <div className="relative bg-muted/20 rounded-xl overflow-hidden" style={{ aspectRatio: "4/3" }}>
-        {isCameraActive ? (
-          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-        ) : (
-          <div className="flex items-center justify-center h-full">
+        {/* FIX: <video> selalu dirender agar ref tersedia saat srcObject di-assign.
+           Loader ditampilkan via overlay sampai stream siap. */}
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="w-full h-full object-cover"
+          style={{ display: isCameraActive ? "block" : "none" }}
+        />
+        {!isCameraActive && (
+          <div className="absolute inset-0 flex items-center justify-center">
             <p className="text-sm text-muted-foreground">Memulai kamera...</p>
           </div>
         )}

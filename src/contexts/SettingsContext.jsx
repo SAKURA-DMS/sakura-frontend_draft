@@ -28,7 +28,8 @@ function applyTheme(theme) {
 
 export const SettingsProvider = ({ children }) => {
   const { currentUser } = useApp();
-  const storageKey = `sakura_prefs_${currentUser.id}`;
+  // Guard: currentUser bisa null saat authLoading belum selesai
+  const storageKey = `sakura_prefs_${currentUser?.id ?? "guest"}`;
 
   const [settings, setSettings] = useState(() => {
     try {
@@ -69,10 +70,10 @@ export const SettingsProvider = ({ children }) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `sakura_preferences_${currentUser.id}.json`;
+    a.download = `sakura_preferences_${currentUser?.id ?? "guest"}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [settings, currentUser.id]);
+  }, [settings, currentUser?.id]);
 
   return (
     <SettingsContext.Provider value={{ settings, updateSettings, updateNotifications, updateScan, updateSecurity, resetToDefault, exportPreferences }}>

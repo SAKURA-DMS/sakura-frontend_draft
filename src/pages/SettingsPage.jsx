@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import * as authService from "@/services/authService";
 import {
   Sun,
   Moon,
@@ -143,11 +144,12 @@ function ActivationTutorial({ currentStep, email }) {
 }
 
 /* ── Countdown timer ── */
-function CountdownTimer({ seconds, onResend }) {
+function CountdownTimer({ seconds = 180, onResend }) {
   const [remaining, setRemaining] = useState(seconds);
   const [canResend, setCanResend] = useState(false);
 
-  useState(() => {
+  useEffect(() => {
+    if (remaining <= 0) { setCanResend(true); return; }
     const timer = setInterval(() => {
       setRemaining((prev) => {
         if (prev <= 1) {
@@ -159,7 +161,10 @@ function CountdownTimer({ seconds, onResend }) {
       });
     }, 1000);
     return () => clearInterval(timer);
-  });
+  }, []);
+
+  const mm = String(Math.floor(remaining / 60)).padStart(2, "0");
+  const ss = String(remaining % 60).padStart(2, "0");
 
   return (
     <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -177,7 +182,7 @@ function CountdownTimer({ seconds, onResend }) {
       ) : (
         <span>
           Kode baru dalam{" "}
-          <span className="font-semibold text-foreground">00:{String(remaining).padStart(2, "0")}</span>
+          <span className="font-semibold text-foreground">{mm}:{ss}</span>
         </span>
       )}
     </div>
@@ -229,39 +234,48 @@ export default function SettingsPage() {
     </div>
   );
 
-  const handleToggle2FA = (v) => {
+  const handleToggle2FA = async (v) => {
     if (v) {
       setEnabling2FA(true);
       setOtpSent(false);
       setOtp(["", "", "", "", "", ""]);
       setVerified(false);
     } else {
-      setTwoFactorEnabled(false);
-      updateSecurity({ twoFactor: false });
-      setOtpSent(false);
-      setOtp(["", "", "", "", "", ""]);
-      setVerified(false);
-      setEnabling2FA(false);
-      toast({ title: "2FA dinonaktifkan", description: "Verifikasi dua langkah telah dimatikan." });
+      const pw = prompt("Masukkan password Anda untuk menonaktifkan 2FA:");
+      if (!pw) return;
+      try {
+        await authService.disable2FA(pw); 
+        setTwoFactorEnabled(false);
+        updateSecurity({ twoFactor: false });
+        setOtpSent(false);
+        setOtp(["", "", "", "", "", ""]);
+        setVerified(false);
+        setEnabling2FA(false);
+        toast({ title: "2FA dinonaktifkan", description: "Verifikasi dua langkah telah dimatikan." });
+      } catch (err) {
+        toast({ title: "Gagal menonaktifkan 2FA", description: err.message || "Coba lagi.", variant: "destructive" });
+      }
     }
   };
 
-  const handleSendOtp = () => {
+  const handleSendOtp = async () => {
     setIsSending(true);
-    setTimeout(() => {
+    try {
+      await authService.sendOtp(); 
       setOtpSent(true);
-      setIsSending(false);
       toast({ title: "Kode OTP dikirim", description: `Kode telah dikirim ke ${currentUser.email}.` });
-    }, 800);
+    } catch (err) {
+      toast({ title: "Gagal mengirim OTP", description: err.message || "Coba lagi.", variant: "destructive" });
+    } finally {
+      setIsSending(false);
+    }
   };
 
-  // Handle 6-digit OTP boxes
   const handleOtpChange = (value, index) => {
     const digit = value.replace(/\D/g, "").slice(-1);
     const newOtp = [...otp];
     newOtp[index] = digit;
     setOtp(newOtp);
-    // Auto-advance
     if (digit && index < 5) {
       document.getElementById(`settings-otp-${index + 1}`)?.focus();
     }
@@ -273,17 +287,22 @@ export default function SettingsPage() {
     }
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     const code = otp.join("");
     if (code.length < 6) {
       toast({ title: "Kode tidak valid", description: "Masukkan 6 digit kode OTP.", variant: "destructive" });
       return;
     }
-    setVerified(true);
-    setTwoFactorEnabled(true);
-    updateSecurity({ twoFactor: true });
-    setEnabling2FA(false);
-    toast({ title: "✅ Verifikasi berhasil", description: "Email OTP telah diaktifkan sebagai metode 2FA." });
+    try {
+      await authService.enable2FA(code);
+      setVerified(true);
+      setTwoFactorEnabled(true);
+      updateSecurity({ twoFactor: true });
+      setEnabling2FA(false);
+      toast({ title: "✅ Verifikasi berhasil", description: "Email OTP telah diaktifkan sebagai metode 2FA." });
+    } catch (err) {
+      toast({ title: "OTP salah atau kedaluwarsa", description: err.message || "Masukkan kode yang benar.", variant: "destructive" });
+    }
   };
 
   const renderSection = () => {
@@ -410,7 +429,6 @@ export default function SettingsPage() {
             {/* ── Activation flow card ── */}
             {(enabling2FA || enabled) && (
               <div className="bg-card border border-border rounded-xl p-4 sm:p-6 space-y-4">
-                {/* Method header */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -475,7 +493,6 @@ export default function SettingsPage() {
                       </button>
                     ) : (
                       <div className="space-y-3">
-                        {/* 6-box OTP input */}
                         <div>
                           <label className="block text-xs font-medium text-foreground mb-2">Masukkan Kode OTP</label>
                           <div className="flex gap-2 justify-center">
@@ -498,7 +515,7 @@ export default function SettingsPage() {
                             ))}
                           </div>
                           <div className="mt-2">
-                            <CountdownTimer seconds={45} onResend={handleSendOtp} />
+                            <CountdownTimer seconds={180} onResend={handleSendOtp} />
                           </div>
                         </div>
 
@@ -582,17 +599,9 @@ export default function SettingsPage() {
   };
 
   return (
-    /*
-     * h-screen + overflow-hidden on the outermost div locks the entire
-     * settings page to exactly the viewport height. Nothing outside
-     * this box can cause the browser to scroll.
-     * The inner flex row then splits into a frozen sidebar and a
-     * scrollable content panel — only the content panel overflows.
-     */
     <div className="h-screen overflow-hidden flex flex-col bg-background">
       <AppHeader title="Pengaturan Sistem" subtitle="Kelola preferensi dan keamanan akun Anda" />
 
-      {/* flex-1 min-h-0 → row fills remaining height without overflowing */}
       <div className="flex flex-1 min-h-0">
 
         {/* ── Frozen sidebar ── */}

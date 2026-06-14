@@ -5,12 +5,15 @@
 @tailwind utilities;
 
 @layer base {
+<<<<<<< HEAD
   /* ═══════════════════════════════════════════════════════════
      SAKURA — Tema Profesional Sekolah
      Primary: Deep Maroon (wine) — institutional & trustworthy
      Light mode: Clean white/gray — mudah dibaca, tidak terlalu pink
      Dark mode: Deep navy-gray — kontras tinggi, tidak pink-tinted
   ═══════════════════════════════════════════════════════════ */
+=======
+>>>>>>> frontend/hilma
   :root {
     /* Backgrounds */
     --background: 210 20% 98%;

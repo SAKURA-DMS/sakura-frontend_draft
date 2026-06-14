@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect, useMemo, useRef } from "react";
+import { verifyOtpLogin, sendOtp } from "@/services/authService";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
 import {
@@ -106,9 +107,8 @@ function AnimatedInput({ icon: Icon, label, type = "text", value, onChange, plac
       </label>
       <div className="relative group">
         <div
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 z-10 transition-all"
+          className="absolute left-3.5 top-1/2 -translate-y-1/2 z-10 transition-colors"
           style={{
-            transform: focused ? "scale(1.15)" : "scale(1)",
             color: focused ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
           }}
         >
@@ -164,9 +164,10 @@ function TypedHeading() {
 }
 
 /* ── Countdown for OTP resend ── */
-function OtpCountdown({ onResend }) {
-  const [sec, setSec] = useState(45);
+function OtpCountdown({ onResend, initialSeconds = 180, maxAttempts = 3 }) {
+  const [sec, setSec] = useState(initialSeconds);
   const [canResend, setCanResend] = useState(false);
+  const [attempts, setAttempts] = useState(1);
 
   useEffect(() => {
     if (sec <= 0) { setCanResend(true); return; }
@@ -174,20 +175,40 @@ function OtpCountdown({ onResend }) {
     return () => clearTimeout(t);
   }, [sec]);
 
+  const mm = String(Math.floor(sec / 60)).padStart(2, "0");
+  const ss = String(sec % 60).padStart(2, "0");
+
+  const handleResend = () => {
+    const next = attempts + 1;
+    setAttempts(next);
+    setSec(initialSeconds);
+    setCanResend(false);
+    onResend();
+  };
+
   return (
     <div className="text-center">
       {canResend ? (
-        <button
-          onClick={() => { setSec(45); setCanResend(false); onResend(); }}
-          className="flex items-center gap-1.5 text-xs font-medium mx-auto hover:underline"
-          style={{ color: "hsl(var(--primary))" }}
-        >
-          <RefreshCw size={12} /> Kirim ulang kode OTP
-        </button>
+        attempts >= maxAttempts ? (
+          // Sudah 2x percobaan, hentikan
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p>Batas pengiriman OTP tercapai.</p>
+            <p className="text-[11px]">Periksa folder <span className="font-semibold text-foreground">Spam</span> atau hubungi administrator.</p>
+          </div>
+        ) : (
+          <button
+            onClick={handleResend}
+            className="flex items-center gap-1.5 text-xs font-medium mx-auto hover:underline"
+            style={{ color: "hsl(var(--primary))" }}
+          >
+            <RefreshCw size={12} /> Kirim ulang kode OTP ({attempts}/{maxAttempts})
+          </button>
+        )
       ) : (
         <span className="text-xs text-muted-foreground">
           Kirim ulang kode dalam{" "}
-          <span className="font-semibold text-foreground">00:{String(sec).padStart(2, "0")}</span>
+          <span className="font-semibold text-foreground">{mm}:{ss}</span>
+          {attempts > 1 && <span className="text-[11px] ml-1">· percobaan {attempts}/{maxAttempts}</span>}
         </span>
       )}
     </div>
@@ -199,7 +220,7 @@ function OtpCountdown({ onResend }) {
    ════════════════════════════════════════════════════ */
 function TwoFAScreen({ email, onVerify, onBack, isSending, isSubmitting }) {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-  const [otpSent, setOtpSent] = useState(false);
+  const [otpSent, setOtpSent] = useState(true); // FIX: OTP sudah dikirim backend saat /login
   const [error, setError] = useState("");
   const inputRefs = useRef([]);
 
@@ -227,9 +248,13 @@ function TwoFAScreen({ email, onVerify, onBack, isSending, isSubmitting }) {
     e.preventDefault();
   };
 
-  const handleSend = () => {
-    setOtpSent(true);
-    isSending?.();
+  const handleSend = async () => {
+    try {
+      await sendOtp(email);
+      setOtpSent(true);
+    } catch (err) {
+      setError(err.message || "Gagal mengirim OTP. Coba lagi.");
+    }
   };
 
   const handleVerify = () => {
@@ -397,9 +422,7 @@ function TwoFAScreen({ email, onVerify, onBack, isSending, isSubmitting }) {
               </button>
             </div>
           ) : (
-            /* ── OTP input step ── */
             <div className="space-y-5">
-              {/* 6 individual boxes */}
               <div>
                 <div className="flex gap-2.5 justify-center" onPaste={handlePaste}>
                   {otp.map((digit, i) => (
@@ -471,10 +494,7 @@ function TwoFAScreen({ email, onVerify, onBack, isSending, isSubmitting }) {
                 )}
               </button>
 
-              {/* Demo hint */}
-              <p className="text-center text-[11px] text-muted-foreground/60 border border-dashed border-border rounded-xl py-2">
-                Demo: Gunakan kode <span className="font-mono font-bold text-foreground/60">123456</span> untuk verifikasi
-              </p>
+
             </div>
           )}
 
@@ -500,49 +520,61 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [otpStep, setOtpStep] = useState(false);
-  const [pendingUser, setPendingUser] = useState(null);
-  const { login, users } = useApp();
+  const [pendingEmail, setPendingEmail] = useState(null);
+
+  const { login, finalizeLogin } = useApp();
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!email) { setError("Masukkan email terlebih dahulu."); return; }
+    if (!password) { setError("Masukkan password terlebih dahulu."); return; }
+
     setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 400));
-    const user = users.find((u) => u.email === email);
+    setError("");
+
+    const result = await login(email, password);
     setIsSubmitting(false);
-    if (!user) { setError("Email tidak ditemukan."); return; }
-    if (user.status === "menunggu_approval") {
+
+    if (result.ok) {
+      if (result.require2FA) {
+        setPendingEmail(result.email);
+        setOtpStep(true);
+        return;
+      }
+      navigate("/dashboard");
+      return;
+    }
+
+    // Login gagal
+    if (result.pending) {
       setError("Akun Anda belum diaktifkan. Silakan tunggu persetujuan dari Operator TU.");
-      return;
+    } else {
+      setError(result.error || "Email atau password salah.");
     }
-    // Check 2FA: from in-memory state OR from localStorage (persisted after logout)
-    const has2FA = user.twoFactorEnabled || localStorage.getItem(`sakura_2fa_${user.email}`) === "true";
-    if (has2FA) {
-      setPendingUser(user);
-      setOtpStep(true);
-      return;
-    }
-    const ok = login(email);
-    if (ok === true) navigate("/dashboard");
   };
 
   const handleVerifyOtp = async (code) => {
     if (!/^\d{6}$/.test(code)) return;
     setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 500));
-    const ok = login(email);
-    setIsSubmitting(false);
-    if (ok === true) navigate("/dashboard");
+    setError("");
+    try {
+      const { user } = await verifyOtpLogin(pendingEmail, code);
+      finalizeLogin(user);
+      navigate("/dashboard");
+    } catch (err) {
+      setError(err.message || "Kode OTP salah atau sudah kedaluwarsa.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  /* ── Show 2FA screen as full-page replacement ── */
-  if (otpStep && pendingUser) {
+  if (otpStep && pendingEmail) {
     return (
       <TwoFAScreen
-        email={pendingUser.email}
+        email={pendingEmail}
         onVerify={handleVerifyOtp}
-        onBack={() => { setOtpStep(false); setPendingUser(null); }}
+        onBack={() => { setOtpStep(false); setPendingEmail(null); }}
         isSubmitting={isSubmitting}
       />
     );

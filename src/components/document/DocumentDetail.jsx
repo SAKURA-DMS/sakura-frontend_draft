@@ -22,7 +22,6 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const { addAuditNote, currentUser, hasPermission, approveDocument, rejectDocument, archiveDocument } = useApp();
   const navigate = useNavigate();
-  const isAdmin = currentUser.role === "Operator/TU";
 
   const handleAddNote = () => { if (!noteText.trim()) return; addAuditNote(doc.id, noteText.trim()); setNoteText(""); };
   const handleReject = () => { if (!rejectReason.trim()) return; rejectDocument(doc.id, rejectReason.trim()); setShowRejectForm(false); setRejectReason(""); onClose(); };
@@ -137,7 +136,7 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
           </div>
         </div>
       </div>
-      {showPdf && <PdfPreviewOverlay onClose={() => setShowPdf(false)} document={doc} isAdmin={isAdmin} />}
+      {showPdf && <PdfPreviewOverlay onClose={() => setShowPdf(false)} document={doc} />}
     </>
   );
 }

@@ -1,7 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Home } from "lucide-react";
-// Pastikan path ke assets Anda benar
 import heroSakura from "@/assets/sakura_branch.png"; 
 
 export default function NotFound() {
@@ -9,7 +8,6 @@ export default function NotFound() {
 
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center p-6 text-center overflow-hidden">
-      {/* Background Sakura dengan Overlay Gelap agar teks terbaca */}
       <div 
         className="absolute inset-0 z-0 bg-cover bg-center" 
         style={{ backgroundImage: `url(${heroSakura})` }}
@@ -17,7 +15,6 @@ export default function NotFound() {
         <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
       </div>
 
-      {/* Konten Utama */}
       <div className="relative z-10 space-y-4 max-w-md">
         <h1 className="text-9xl font-black text-white/90">404</h1>
         <h2 className="text-2xl font-bold text-white">Halaman Tidak Ditemukan</h2>

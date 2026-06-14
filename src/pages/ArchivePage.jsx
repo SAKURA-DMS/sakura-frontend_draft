@@ -9,14 +9,10 @@ import {
   FileText as FileIcon,
   ChevronRight,
   ChevronDown,
-  Download,
-  Clock,
   X,
   Upload,
-  Plus,
   Pencil,
   Trash2,
-  Monitor,
   MoreVertical,
   FolderPlus,
   FilePlus,
@@ -25,11 +21,11 @@ import {
   Grid3X3,
   LayoutGrid,
   Home,
-  GripVertical,
   PanelLeftClose,
   Maximize2,
   Minimize2,
-  Menu
+  Menu,
+  Loader2,
 } from "lucide-react";
 import {
   Tooltip,
@@ -43,9 +39,9 @@ import {
   ResizableHandle,
 } from "@/components/ui/resizable";
 import AppHeader from "@/components/layout/AppHeader";
-import DocumentDetailModal from "@/components/modals/DocumentDetailModal";
+import DocumentDetailModal from "@/components/document/DocumentDetail"; // ← FIX: ganti dari modals/
 
-import UploadForm from "@/components/upload/UploadForm";
+import UploadForm from "@/components/document/UploadForm"; // ← FIX: ganti dari upload/
 import { useApp } from "@/contexts/AppContext";
 import { useSettings } from "@/contexts/SettingsContext";
 import {
@@ -121,6 +117,8 @@ const STATUS_SECTIONS = [
 export default function ArchivePage() {
   const {
     documents,
+    documentsLoading,
+    loadDocuments,
     toggleFavorite,
     currentUser,
     customFolders,
@@ -131,6 +129,7 @@ export default function ArchivePage() {
     moveDocument,
     deleteDocument,
     trashedDocuments,
+    loadTrashedDocuments,
     restoreDocument,
     permanentlyDeleteDocument,
   } = useApp();
@@ -139,7 +138,10 @@ export default function ArchivePage() {
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // State untuk deteksi layar Mobile
+  useEffect(() => {
+    loadDocuments();
+  }, [loadDocuments]);
+
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
 
   useEffect(() => {
@@ -181,7 +183,6 @@ export default function ArchivePage() {
   const [previewMode, setPreviewMode] = useState("inline");
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
-  
   // State untuk modal folder di HP
   const [showMobileFolderDialog, setShowMobileFolderDialog] = useState(false);
 
@@ -212,24 +213,24 @@ export default function ArchivePage() {
   const [folderGridSize, setFolderGridSize] = useState("medium");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const isAdmin = currentUser.role === "Operator/TU";
+  const isAdmin = currentUser?.role === "Operator/TU";
 
   const accessibleDocuments = useMemo(() => {
     return documents.filter((doc) => {
-      if (currentUser.role === "Operator/TU") return true;
+      if (currentUser?.role === "Operator/TU") return true;
 
       const isSensitive = doc.category_id === 2 || doc.type_id === 12;
 
       if (!isSensitive) return true;
 
-      if (currentUser.role === "Guru" && currentUser.nip) {
+      if (currentUser?.role === "Guru" && currentUser?.nip) {
         return (
           doc.nip === currentUser.nip ||
           doc.pengunggah?.id === currentUser.id
         );
       }
 
-      if (currentUser.role === "Kepala Sekolah") return true;
+      if (currentUser?.role === "Kepala Sekolah") return true;
 
       return false;
     });
@@ -291,7 +292,7 @@ export default function ArchivePage() {
         (d) =>
           d.judul.toLowerCase().includes(q) ||
           d.nomorDokumen.toLowerCase().includes(q) ||
-          d.pengunggah.nama.toLowerCase().includes(q)
+          d.pengunggah?.nama?.toLowerCase().includes(q)
       );
     }
 
@@ -407,7 +408,7 @@ export default function ArchivePage() {
     setShowCreateFolderConfirm(false);
   };
 
-  const handleEdit = () => {
+  const handleEdit = async () => {
     if (!editName.trim()) return;
 
     if (editTarget.type === "folder") {
@@ -428,27 +429,35 @@ export default function ArchivePage() {
         DOCUMENT_TYPES.find((t) => t.type_id === editTypeId)?.type_name ||
         editTarget.data.jenisDokumen;
 
-      editDocument(editTarget.data.id, {
-        judul: editName.trim(),
-        category_id: editCategoryId || editTarget.data.category_id,
-        type_id: editTypeId || editTarget.data.type_id,
-        kategori: category,
-        jenisDokumen: typeName,
-        tahunAjaran: editYear || editTarget.data.tahunAjaran,
-      });
+      try {
+        await editDocument(editTarget.data.id, {
+          judul: editName.trim(),
+          category_id: editCategoryId || editTarget.data.category_id,
+          type_id: editTypeId || editTarget.data.type_id,
+          kategori: category,
+          jenisDokumen: typeName,
+          tahunAjaran: editYear || editTarget.data.tahunAjaran,
+        });
 
-      toast({
-        title: "✅ Berhasil",
-        description: `Dokumen '${editName.trim()}' berhasil diperbarui`,
-        className: "bg-green-600 text-white border-none shadow-2xl font-semibold",
-      });
+        toast({
+          title: "✅ Berhasil",
+          description: `Dokumen '${editName.trim()}' berhasil diperbarui`,
+          className: "bg-green-600 text-white border-none shadow-2xl font-semibold",
+        });
+      } catch (err) {
+        toast({
+          variant: "destructive",
+          title: "❌ Gagal",
+          description: err?.message || "Gagal memperbarui dokumen",
+        });
+      }
     }
 
     setShowEditModal(false);
     setEditTarget(null);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteTarget.type === "folder") {
       deleteFolder(deleteTarget.id);
       toast({
@@ -459,29 +468,46 @@ export default function ArchivePage() {
           "shadow-2xl border-2 border-red-800 font-bold bg-destructive text-destructive-foreground",
       });
     } else {
-      deleteDocument(deleteTarget.id);
-      if (previewDoc?.id === deleteTarget.id) closePreview();
-      toast({
-        variant: "destructive",
-        title: "🗑️ Berhasil Dihapus",
-        description: `Dokumen '${deleteTarget.name}' berhasil dipindahkan ke Sampah`,
-        className:
-          "shadow-2xl border-2 border-red-800 font-bold bg-destructive text-destructive-foreground",
-      });
+      try {
+        await deleteDocument(deleteTarget.id);
+        if (previewDoc?.id === deleteTarget.id) closePreview();
+        toast({
+          variant: "destructive",
+          title: "🗑️ Berhasil Dihapus",
+          description: `Dokumen '${deleteTarget.name}' berhasil dipindahkan ke Sampah`,
+          className:
+            "shadow-2xl border-2 border-red-800 font-bold bg-destructive text-destructive-foreground",
+        });
+      } catch (err) {
+        toast({
+          variant: "destructive",
+          title: "❌ Gagal",
+          description: err?.message || "Gagal menghapus dokumen",
+        });
+      }
     }
 
     setShowDeleteConfirm(false);
     setDeleteTarget(null);
+    setDeleteConfirmInput("");
   };
 
-  const handleMove = () => {
+  const handleMove = async () => {
     if (!moveDestination || !moveTarget) return;
-    moveDocument(moveTarget.id, moveDestination);
-    toast({
-      title: "✅ Berhasil",
-      description: `Dokumen '${moveTarget.judul}' berhasil dipindahkan`,
-      className: "bg-green-600 text-white border-none shadow-2xl font-semibold",
-    });
+    try {
+      await moveDocument(moveTarget.id, moveDestination);
+      toast({
+        title: "✅ Berhasil",
+        description: `Dokumen '${moveTarget.judul}' berhasil dipindahkan`,
+        className: "bg-green-600 text-white border-none shadow-2xl font-semibold",
+      });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "❌ Gagal",
+        description: err?.message || "Gagal memindahkan dokumen",
+      });
+    }
     setShowMoveModal(false);
     setMoveTarget(null);
     setMoveDestination("");
@@ -530,6 +556,12 @@ export default function ArchivePage() {
     if (!selectedFolder) return null;
     return findFolderNode(folderTree, selectedFolder);
   }, [selectedFolder, folderTree]);
+
+  // Phase 4: load trash saat Recycle Bin dibuka
+  const handleOpenRecycleBin = () => {
+    loadTrashedDocuments();
+    setShowRecycleBin(true);
+  };
 
   const PreviewDetail = ({ doc, variant = "inline" }) => {
     if (!doc) return null;
@@ -630,14 +662,16 @@ export default function ArchivePage() {
             <div>
               <div className="text-muted-foreground text-xs">Pengunggah</div>
               <div className="font-medium text-foreground">
-                {doc.pengunggah.nama}
+                {doc.pengunggah?.nama}
               </div>
             </div>
 
             <div>
               <div className="text-muted-foreground text-xs">Tanggal Unggah</div>
               <div className="font-medium text-foreground">
-                {format(new Date(doc.tanggalUpload), "dd/MM/yyyy")}
+                {doc.tanggalUpload
+                  ? format(new Date(doc.tanggalUpload), "dd/MM/yyyy")
+                  : "-"}
               </div>
             </div>
           </div>
@@ -686,36 +720,42 @@ export default function ArchivePage() {
             </div>
           )}
 
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Clock size={14} className="text-primary" />
-              <span className="font-semibold text-sm text-foreground">
-                Jejak Aktivitas
-              </span>
-            </div>
-            <div className="space-y-3">
-              {doc.auditTrail.slice(0, 4).map((entry, i) => (
-                <div key={i} className="flex gap-2">
-                  <img
-                    src={entry.user.avatar}
-                    alt=""
-                    className="w-7 h-7 rounded-full object-cover shrink-0 mt-0.5"
-                  />
-                  <div className="min-w-0">
-                    <div className="text-xs font-semibold text-foreground">
-                      {entry.user.nama}
-                    </div>
-                    <div className="text-xs text-foreground">
-                      {entry.action}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {format(new Date(entry.time), "dd/MM/yyyy HH:mm")}
+          {doc.auditTrail && doc.auditTrail.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <FileIcon size={14} className="text-primary" />
+                <span className="font-semibold text-sm text-foreground">
+                  Jejak Aktivitas
+                </span>
+              </div>
+              <div className="space-y-3">
+                {doc.auditTrail.slice(0, 4).map((entry, i) => (
+                  <div key={i} className="flex gap-2">
+                    {entry.user?.avatar && (
+                      <img
+                        src={entry.user.avatar}
+                        alt=""
+                        className="w-7 h-7 rounded-full object-cover shrink-0 mt-0.5"
+                      />
+                    )}
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-foreground">
+                        {entry.user?.nama || entry.user?.name || "Sistem"}
+                      </div>
+                      <div className="text-xs text-foreground">
+                        {entry.action}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {entry.time
+                          ? format(new Date(entry.time), "dd/MM/yyyy HH:mm")
+                          : ""}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     );
@@ -740,7 +780,6 @@ export default function ArchivePage() {
               setShowFavorites(false);
               setPreviewDoc(null);
               setPreviewMode("inline");
-              // Jika ditekan dari modal HP, tutup modalnya
               if (isMobileView) setShowMobileFolderDialog(false);
             }}
             className={`flex items-center gap-2 flex-1 min-w-0 px-3 py-2 rounded-xl text-sm border transition-none ${
@@ -904,7 +943,6 @@ export default function ArchivePage() {
                 data: doc,
               });
             }}
-            // Class opacity diubah agar di HP (layar sentuh tanpa hover) tetap muncul
             className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 p-1.5 rounded-lg hover:bg-muted transition-none shrink-0"
           >
             <MoreVertical size={16} className="text-muted-foreground" />
@@ -952,7 +990,7 @@ export default function ArchivePage() {
         )}
 
         <ResizablePanelGroup direction="horizontal" className="h-full overflow-hidden border-t border-border">
-          {/* FOLDER TREE DESKTOP: Disembunyikan sepenuhnya jika layar Mobile (isMobile) */}
+          {/* FOLDER TREE DESKTOP */}
           {!sidebarCollapsed && !isMobile && (
             <>
               <ResizablePanel
@@ -1045,7 +1083,15 @@ export default function ArchivePage() {
                     )}
 
                     <div className="h-px bg-border my-2" />
-                    {folderTree.map((folder) => renderFolder(folder))}
+
+                    {documentsLoading ? (
+                      <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
+                        <Loader2 size={16} className="animate-spin" />
+                        <span className="text-xs">Memuat folder...</span>
+                      </div>
+                    ) : (
+                      folderTree.map((folder) => renderFolder(folder))
+                    )}
                   </div>
                 </div>
               </ResizablePanel>
@@ -1070,12 +1116,12 @@ export default function ArchivePage() {
             className="h-full min-h-0 overflow-hidden"
           >
             <div className="h-full overflow-y-auto p-4 lg:p-9 space-y-5">
-              
+
               {/* TOMBOL NAVIGASI FOLDER KHUSUS MOBILE */}
               {isMobile && (
                 <div className="flex lg:hidden mb-2">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="w-full flex justify-start text-muted-foreground font-normal border-border bg-card shadow-sm"
                     onClick={() => setShowMobileFolderDialog(true)}
                   >
@@ -1125,7 +1171,7 @@ export default function ArchivePage() {
                 </div>
               )}
 
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 hidden lg:flex">
+              <div className="hidden lg:flex lg:flex-row lg:items-center justify-between gap-4">
                 <div>
                   <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
                     {showFavorites ? (
@@ -1148,7 +1194,7 @@ export default function ArchivePage() {
                     )}
                   </h2>
                   <p className="text-sm text-muted-foreground mt-0.5">
-                    {filtered.length} dokumen ditemukan
+                    {documentsLoading ? "Memuat..." : `${filtered.length} dokumen ditemukan`}
                   </p>
                 </div>
 
@@ -1273,7 +1319,6 @@ export default function ArchivePage() {
                     className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                 </div>
-                
                 <div className="grid grid-cols-2 sm:flex gap-3 w-full sm:w-auto">
                   <select
                     value={statusFilter}
@@ -1319,7 +1364,7 @@ export default function ArchivePage() {
 
                 {isAdmin && (
                   <button
-                    onClick={() => setShowRecycleBin(true)}
+                    onClick={handleOpenRecycleBin}
                     className="w-full sm:w-auto flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-input text-sm hover:bg-muted transition-none mt-1 sm:mt-0"
                   >
                     <Trash2 size={14} /> Recycle Bin
@@ -1327,59 +1372,69 @@ export default function ArchivePage() {
                 )}
               </div>
 
-              {filtered.length > 0 && (
-                <div className="flex items-center justify-between mt-6">
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Dokumen
-                  </div>
-                  <span className="text-xs text-muted-foreground lg:hidden">
-                    {filtered.length} ditemukan
-                  </span>
-                </div>
-              )}
-
-              {statusFilter !== "Semua" ? (
-                <div className="space-y-2">
-                  {filtered.map((doc) => renderDocCard(doc, false))}
-                  {filtered.length === 0 && (
-                    <p className="text-center text-muted-foreground py-8">
-                      Tidak ada dokumen ditemukan.
-                    </p>
-                  )}
+              {/* LOADING STATE */}
+              {documentsLoading ? (
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
+                  <Loader2 size={32} className="animate-spin text-primary" />
+                  <p className="text-sm font-medium">Memuat dokumen...</p>
                 </div>
               ) : (
-                <div className="space-y-6">
-                  {STATUS_SECTIONS.map((section) => {
-                    const docs = groupedDocs[section.key];
-                    if (docs.length === 0) return null;
-                    return (
-                      <div key={section.key}>
-                        <div
-                          className={`flex items-center justify-between sm:justify-start gap-2 px-3 py-2 rounded-lg border mb-3 ${section.bgColor}`}
-                        >
-                          <span className={`text-sm font-semibold ${section.color}`}>
-                            {section.label}
-                          </span>
-                          <span
-                            className={`text-xs font-medium px-2 py-0.5 rounded-full ${section.badgeColor}`}
-                          >
-                            {docs.length}
-                          </span>
-                        </div>
-                        <div className="space-y-2">
-                          {docs.map((doc) =>
-                            renderDocCard(doc, section.opacity)
-                          )}
-                        </div>
+                <>
+                  {filtered.length > 0 && (
+                    <div className="flex items-center justify-between mt-6">
+                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Dokumen
                       </div>
-                    );
-                  })}
-                  {filtered.length === 0 && (
-                    <p className="text-center text-muted-foreground py-8">
-                      Tidak ada dokumen ditemukan.
-                    </p>
+                      <span className="text-xs text-muted-foreground lg:hidden">
+                        {filtered.length} ditemukan
+                      </span>
+                    </div>
                   )}
-                </div>
+
+                  {statusFilter !== "Semua" ? (
+                    <div className="space-y-2">
+                      {filtered.map((doc) => renderDocCard(doc, false))}
+                      {filtered.length === 0 && (
+                        <p className="text-center text-muted-foreground py-8">
+                          Tidak ada dokumen ditemukan.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {STATUS_SECTIONS.map((section) => {
+                        const docs = groupedDocs[section.key];
+                        if (docs.length === 0) return null;
+                        return (
+                          <div key={section.key}>
+                            <div
+                              className={`flex items-center justify-between sm:justify-start gap-2 px-3 py-2 rounded-lg border mb-3 ${section.bgColor}`}
+                            >
+                              <span className={`text-sm font-semibold ${section.color}`}>
+                                {section.label}
+                              </span>
+                              <span
+                                className={`text-xs font-medium px-2 py-0.5 rounded-full ${section.badgeColor}`}
+                              >
+                                {docs.length}
+                              </span>
+                            </div>
+                            <div className="space-y-2">
+                              {docs.map((doc) =>
+                                renderDocCard(doc, section.opacity)
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {filtered.length === 0 && (
+                        <p className="text-center text-muted-foreground py-8">
+                          Tidak ada dokumen ditemukan.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </ResizablePanel>
@@ -1521,43 +1576,43 @@ export default function ArchivePage() {
             <DialogTitle>Pilih Folder Arsip</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto p-4 space-y-1">
-             <button
-                onClick={() => {
-                  setSelectedFolder(null);
-                  setShowFavorites(false);
-                  setPreviewDoc(null);
-                  setPreviewMode("inline");
-                  setShowMobileFolderDialog(false);
-                }}
-                className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-none ${
-                  !selectedFolder && !showFavorites
-                    ? "bg-primary/10 text-primary font-semibold"
-                    : "text-foreground hover:bg-muted"
-                }`}
-              >
-                📂 Semua Dokumen
-              </button>
-              <button
-                onClick={() => {
-                  setShowFavorites(true);
-                  setSelectedFolder(null);
-                  setPreviewDoc(null);
-                  setPreviewMode("inline");
-                  setShowMobileFolderDialog(false);
-                }}
-                className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-none flex items-center gap-2 ${
-                  showFavorites
-                    ? "bg-primary/10 text-primary font-semibold"
-                    : "text-foreground hover:bg-muted"
-                }`}
-              >
-                <Star size={14} className="text-sakura-warning" /> Favorit
-              </button>
-              
-              <div className="h-px bg-border my-3" />
-              <div className="text-xs font-semibold text-muted-foreground mb-2 px-2 uppercase tracking-wider">Direktori</div>
-              
-              {folderTree.map((folder) => renderFolder(folder, 0, true))}
+            <button
+              onClick={() => {
+                setSelectedFolder(null);
+                setShowFavorites(false);
+                setPreviewDoc(null);
+                setPreviewMode("inline");
+                setShowMobileFolderDialog(false);
+              }}
+              className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-none ${
+                !selectedFolder && !showFavorites
+                  ? "bg-primary/10 text-primary font-semibold"
+                  : "text-foreground hover:bg-muted"
+              }`}
+            >
+              📂 Semua Dokumen
+            </button>
+            <button
+              onClick={() => {
+                setShowFavorites(true);
+                setSelectedFolder(null);
+                setPreviewDoc(null);
+                setPreviewMode("inline");
+                setShowMobileFolderDialog(false);
+              }}
+              className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-none flex items-center gap-2 ${
+                showFavorites
+                  ? "bg-primary/10 text-primary font-semibold"
+                  : "text-foreground hover:bg-muted"
+              }`}
+            >
+              <Star size={14} className="text-sakura-warning" /> Favorit
+            </button>
+
+            <div className="h-px bg-border my-3" />
+            <div className="text-xs font-semibold text-muted-foreground mb-2 px-2 uppercase tracking-wider">Direktori</div>
+
+            {folderTree.map((folder) => renderFolder(folder, 0, true))}
           </div>
           <div className="p-3 border-t border-border shrink-0">
             <Button variant="outline" className="w-full" onClick={() => setShowMobileFolderDialog(false)}>Tutup</Button>
@@ -1781,8 +1836,7 @@ export default function ArchivePage() {
             <AlertDialogTitle>Konfirmasi Buat Folder</AlertDialogTitle>
             <AlertDialogDescription>
               Pastikan Anda ingin membuat folder baru "{newFolderName.trim()}"
-              {createFolderParent ? ` di dalam folder ${createFolderParent.name}` : ""}
-              .
+              {createFolderParent ? ` di dalam folder ${createFolderParent}` : ""}.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1828,7 +1882,7 @@ export default function ArchivePage() {
             <AlertDialogDescription>
               {deleteTarget?.type === "folder"
                 ? `Folder "${deleteTarget?.name}" akan dihapus. Tindakan ini tidak dapat dibatalkan.`
-                : `Dokumen "${deleteTarget?.name}" akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan.`}
+                : `Dokumen "${deleteTarget?.name}" akan dipindahkan ke Kotak Sampah.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="px-6 pb-4">
@@ -1886,7 +1940,10 @@ export default function ArchivePage() {
               </button>
             </div>
             <UploadForm
-              onSuccess={() => setShowUploadModal(false)}
+              onSuccess={() => {
+                setShowUploadModal(false);
+                loadDocuments();
+              }}
               onCancel={() => setShowUploadModal(false)}
             />
           </div>
@@ -1930,8 +1987,8 @@ export default function ArchivePage() {
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => {
-                        restoreDocument(d.id);
+                      onClick={async () => {
+                        await restoreDocument(d.id);
                         toast({
                           title: "✅ Berhasil Direstore",
                           description: `Dokumen '${d.judul}' berhasil dikembalikan.`,
@@ -1944,8 +2001,8 @@ export default function ArchivePage() {
                       Restore
                     </button>
                     <button
-                      onClick={() => {
-                        permanentlyDeleteDocument(d.id);
+                      onClick={async () => {
+                        await permanentlyDeleteDocument(d.id);
                         toast({
                           variant: "destructive",
                           title: "💥 Dihapus Permanen",
@@ -1974,8 +2031,7 @@ export default function ArchivePage() {
             onClick={closePreview}
           />
           <div className="relative z-10 bg-background rounded-t-3xl border-t border-border max-h-[90vh] overflow-y-auto shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
-             {/* Kapsul kecil untuk visualisasi swipe di atas popup */}
-             <div className="w-12 h-1.5 bg-muted mx-auto rounded-full mt-3 mb-1"></div>
+            <div className="w-12 h-1.5 bg-muted mx-auto rounded-full mt-3 mb-1"></div>
             <PreviewDetail doc={previewDoc} variant="popup" />
           </div>
         </div>

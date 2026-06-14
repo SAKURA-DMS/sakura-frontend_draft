@@ -13,6 +13,15 @@ export default defineConfig({
     hmr: {
       overlay: false,
     },
+    proxy: {
+      // Semua request ke /api/* diteruskan ke backend Express
+      "/api": {
+        target: "http://localhost:5000",
+        changeOrigin: true,
+        // Tidak ada rewrite — path /api tetap dikirim ke backend
+        // sehingga cocok dengan route backend: app.use("/api/auth", ...)
+      },
+    },
   },
   plugins: [react()],
   resolve: {

@@ -26,23 +26,30 @@ export default function ChangePasswordPage() {
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validate()) return;
     setSaving(true);
-    setTimeout(() => {
-      const result = changePassword(currentPw, newPw);
-      if (!result) {
-        setErrors({ currentPw: "Password saat ini tidak sesuai" });
-        setSaving(false);
-        return;
-      }
+    setErrors({});
+    try {
+      await changePassword(currentPw, newPw);
       toast({ title: "Password berhasil diubah" });
       setCurrentPw("");
       setNewPw("");
       setConfirmPw("");
-      setErrors({});
+    } catch (err) {
+      const msg = err.message || "Gagal mengubah password";
+      if (
+        msg.toLowerCase().includes("lama") ||
+        msg.toLowerCase().includes("old") ||
+        msg.toLowerCase().includes("salah")
+      ) {
+        setErrors({ currentPw: "Password saat ini tidak sesuai" });
+      } else {
+        toast({ title: "Gagal", description: msg, variant: "destructive" });
+      }
+    } finally {
       setSaving(false);
-    }, 400);
+    }
   };
 
   const pwField = (label, value, setter, show, toggleShow, errorKey) => (
@@ -52,7 +59,10 @@ export default function ChangePasswordPage() {
         <input
           type={show ? "text" : "password"}
           value={value}
-          onChange={(e) => { setter(e.target.value); setErrors((p) => ({ ...p, [errorKey]: undefined })); }}
+          onChange={(e) => {
+            setter(e.target.value);
+            setErrors((p) => ({ ...p, [errorKey]: undefined }));
+          }}
           className="w-full px-3 py-2.5 pr-10 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
           placeholder={label}
         />
@@ -64,7 +74,9 @@ export default function ChangePasswordPage() {
           {show ? <EyeOff size={16} /> : <Eye size={16} />}
         </button>
       </div>
-      {errors[errorKey] && <p className="text-xs text-destructive mt-1">{errors[errorKey]}</p>}
+      {errors[errorKey] && (
+        <p className="text-xs text-destructive mt-1">{errors[errorKey]}</p>
+      )}
     </div>
   );
 
@@ -78,9 +90,30 @@ export default function ChangePasswordPage() {
               <KeyRound size={18} className="text-primary" /> Ubah Password
             </h3>
 
-            {pwField("Password Saat Ini", currentPw, setCurrentPw, showCurrent, () => setShowCurrent(!showCurrent), "currentPw")}
-            {pwField("Password Baru", newPw, setNewPw, showNew, () => setShowNew(!showNew), "newPw")}
-            {pwField("Konfirmasi Password Baru", confirmPw, setConfirmPw, showConfirm, () => setShowConfirm(!showConfirm), "confirmPw")}
+            {pwField(
+              "Password Saat Ini",
+              currentPw,
+              setCurrentPw,
+              showCurrent,
+              () => setShowCurrent(!showCurrent),
+              "currentPw"
+            )}
+            {pwField(
+              "Password Baru",
+              newPw,
+              setNewPw,
+              showNew,
+              () => setShowNew(!showNew),
+              "newPw"
+            )}
+            {pwField(
+              "Konfirmasi Password Baru",
+              confirmPw,
+              setConfirmPw,
+              showConfirm,
+              () => setShowConfirm(!showConfirm),
+              "confirmPw"
+            )}
 
             <button
               onClick={handleSubmit}

@@ -18,7 +18,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
   const fileRef = useRef(null);
   const [file, setFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
-  const [scanPageImages, setScanPageImages] = useState([]); // scanned page images for validation preview
+  const [scanPageImages, setScanPageImages] = useState([]); 
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -86,7 +86,9 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     tanggalUpload: new Date(),
   });
 
-                {/* OCR scanner removed per requirements */}
+  // Dynamic metadata fields state (category-specific data)
+  const [metaData, setMetaData] = useState({});
+
   const dynamicFields = useMemo(() => {
     if (!selectedCategoryId || !selectedTypeId) return [];
     // Surat Menyurat has type-specific fields

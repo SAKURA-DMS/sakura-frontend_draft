@@ -1,226 +1,359 @@
-import { X, Download, Printer, ZoomIn, ZoomOut, Maximize, Shield, FileText } from "lucide-react";
-import { useEffect, useState, useMemo } from "react";
+import { X, Download, ZoomIn, ZoomOut, Maximize, FileText, AlertCircle, Shield } from "lucide-react";
+import { useEffect, useState } from "react";
+import api from "@/lib/apiClient";
 
-function buildDocumentHtml(doc, mode) {
-  const siswa = doc.namaSiswa || "—";
-  const nisn = doc.nisn || "—";
-  const tahun = doc.tahunAjaran || "—";
-  const kategori = doc.kategori || "Dokumen";
-  const kelas = doc.kelas || "—";
-  const nomor = doc.nomorDokumen || "—";
-  const jenis = doc.jenisDokumen || kategori;
+const WATERMARK_TEXT = "SAKURA - Secure Archiving and Keeping of Unified Records for Administration";
 
-  const isNilai = kategori === "Nilai";
-  const nilaiRows = isNilai
-    ? `
-      <table style="width:100%;border-collapse:collapse;margin:18px 0;font-size:13px;">
-        <thead>
-          <tr style="background:#f0f4f8;">
-            <th style="border:1px solid #cbd5e1;padding:8px 12px;text-align:left;">No</th>
-            <th style="border:1px solid #cbd5e1;padding:8px 12px;text-align:left;">Mata Pelajaran</th>
-            <th style="border:1px solid #cbd5e1;padding:8px 12px;text-align:center;">Nilai</th>
-            <th style="border:1px solid #cbd5e1;padding:8px 12px;text-align:center;">Predikat</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${[
-            ["1", "Bahasa Indonesia", "85", "B+"],
-            ["2", "Matematika", "78", "B"],
-            ["3", "IPA", "82", "B+"],
-            ["4", "IPS", "88", "A-"],
-            ["5", "Bahasa Inggris", "90", "A"],
-            ["6", "Pendidikan Agama", "87", "A-"],
-            ["7", "PPKN", "80", "B+"],
-            ["8", "Seni Budaya", "84", "B+"],
-          ]
-            .map(
-              ([no, mp, nilai, pred]) =>
-                `<tr><td style="border:1px solid #cbd5e1;padding:6px 12px;">${no}</td><td style="border:1px solid #cbd5e1;padding:6px 12px;">${mp}</td><td style="border:1px solid #cbd5e1;padding:6px 12px;text-align:center;">${nilai}</td><td style="border:1px solid #cbd5e1;padding:6px 12px;text-align:center;">${pred}</td></tr>`
-            )
-            .join("")}
-        </tbody>
-      </table>`
-    : "";
-
-  const isApproved = doc.status === "Diarsipkan";
-  const verifyUrl = isApproved ? (() => { const SYSTEM_KEY = "SAKURA-SMPN4-VERIFY-2026"; const payload = `${doc.id}-${SYSTEM_KEY}`; let hash = 0; for (let i = 0; i < payload.length; i++) { hash = ((hash << 5) - hash) + payload.charCodeAt(i); hash = hash & hash; } return `${window.location.origin}/verify-document/${doc.id}?token=${Math.abs(hash).toString(16).padStart(8, '0')}sk`; })() : "";
-
-  const qrSection = (mode === "distributed" && isApproved)
-    ? `
-    <div style="margin-top:32px;padding-top:20px;border-top:1px solid #e2e8f0;">
-      <div style="font-size:12px;color:#64748b;">Untuk verifikasi dokumen, kunjungi halaman Verifikasi di aplikasi.</div>
-    </div>`
-    : "";
-
-  return `<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: 'Times New Roman', serif; color:#1e293b; padding:48px 56px; background:#fff; }
-  .kop { text-align:center; border-bottom:3px double #1e293b; padding-bottom:16px; margin-bottom:24px; }
-  .kop h1 { font-size:14px; letter-spacing:2px; text-transform:uppercase; color:#64748b; margin-bottom:2px; }
-  .kop h2 { font-size:22px; font-weight:bold; }
-  .kop h3 { font-size:13px; font-weight:normal; color:#64748b; }
-  .kop p { font-size:11px; color:#94a3b8; margin-top:4px; }
-  .meta { margin:20px 0; font-size:13px; }
-  .meta td { padding:3px 12px 3px 0; vertical-align:top; }
-  .meta td:first-child { font-weight:bold; width:160px; }
-  .title-doc { text-align:center; font-size:16px; font-weight:bold; margin:28px 0 8px; text-decoration:underline; }
-  .subtitle { text-align:center; font-size:13px; color:#64748b; margin-bottom:20px; }
-  .content { font-size:13px; line-height:1.8; margin:16px 0; }
-  .ttd { display:flex; justify-content:space-between; margin-top:48px; font-size:13px; }
-  .ttd-box { text-align:center; width:200px; }
-  .ttd-line { margin-top:64px; border-bottom:1px solid #1e293b; margin-bottom:4px; }
-  .stamp { text-align:center; margin-top:12px; font-size:11px; color:#94a3b8; }
-</style>
-</head>
-<body>
-  <div class="kop">
-    <h1>Dinas Pendidikan Kabupaten Bekasi</h1>
-    <h2>SMP Negeri 4 Cikarang Barat</h2>
-    <h3>Jl. Raya Cikarang-Cibarusah No. 45, Cikarang Barat, Bekasi 17530</h3>
-    <p>Telp. (021) 8900-1234 | Email: info@smpn4cikarangbarat.sch.id</p>
-  </div>
-
-  <div class="title-doc">${jenis.toUpperCase()}</div>
-  <div class="subtitle">Nomor: ${nomor}</div>
-
-  <table class="meta">
-    <tr><td>Jenis Dokumen</td><td>: ${jenis}</td></tr>
-    <tr><td>Kategori</td><td>: ${kategori}</td></tr>
-    <tr><td>Kelas / Unit</td><td>: ${kelas}</td></tr>
-    ${siswa !== "—" ? `<tr><td>Nama Siswa</td><td>: ${siswa}</td></tr>` : ""}
-    ${nisn !== "—" ? `<tr><td>NISN</td><td>: ${nisn}</td></tr>` : ""}
-    <tr><td>Tahun Ajaran</td><td>: ${tahun}</td></tr>
-    <tr><td>Status</td><td>: ${doc.status}</td></tr>
-  </table>
-
-  ${nilaiRows}
-
-  <div class="content">
-    ${
-      isNilai
-        ? `<p>Demikian laporan nilai ini dibuat berdasarkan hasil evaluasi yang telah dilaksanakan sesuai dengan kurikulum yang berlaku. Nilai di atas merupakan hasil asesmen formatif dan sumatif selama periode semester berjalan.</p>`
-        : `<p>Dokumen ini diterbitkan oleh SMP Negeri 4 Cikarang Barat sebagai ${jenis.toLowerCase()} resmi yang sah dan dapat dipertanggungjawabkan. Segala informasi yang tercantum dalam dokumen ini telah diverifikasi dan sesuai dengan data administrasi sekolah.</p>`
-    }
-  </div>
-
-  <div class="ttd">
-    <div class="ttd-box">
-      <div>Mengetahui,</div>
-      <div>Kepala Sekolah</div>
-      <div class="ttd-line"></div>
-      <div><strong>Dr. Siti Rahayu, M.Pd.</strong></div>
-      <div style="font-size:11px;color:#64748b;">NIP. 19780515 200501 2 003</div>
-    </div>
-    <div class="ttd-box">
-      <div>Cikarang Barat,</div>
-      <div>${new Date(doc.tanggalUpload).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</div>
-      <div class="ttd-line"></div>
-      <div><strong>${doc.pengunggah.nama}</strong></div>
-      <div style="font-size:11px;color:#64748b;">${doc.pengunggah.role}</div>
-    </div>
-  </div>
-
-  ${qrSection}
-
-  <div class="stamp">Dokumen ini digenerate oleh sistem SAKURA — Secure Archiving and Keeping of Unified Records for Administration</div>
-</body>
-</html>`;
+function isImageMime(mime) {
+  return !!mime && /^image\/(jpeg|png|gif|webp)/.test(mime);
+}
+function isPdfMime(mime) {
+  return mime === "application/pdf";
 }
 
-export default function PdfPreviewOverlay({ onClose, document: doc, isAdmin = false }) {
-  const [zoom, setZoom] = useState(100);
-  const [loading, setLoading] = useState(true);
-  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
-  const [viewMode, setViewMode] = useState("distributed");
+// ── Canvas watermark untuk gambar (client-side) ───────────────────────────────
+async function buildWatermarkedImageBlob(imgBlob) {
+  const blobUrl = URL.createObjectURL(imgBlob);
+  const img = new Image();
+  img.src = blobUrl;
+  await new Promise((res, rej) => {
+    img.onload = res;
+    img.onerror = () => rej(new Error("Gagal memuat gambar ke canvas"));
+  });
+  URL.revokeObjectURL(blobUrl);
 
-  const htmlContent = useMemo(() => buildDocumentHtml(doc, viewMode), [doc, viewMode]);
+  const canvas  = document.createElement("canvas");
+  canvas.width  = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0);
+
+  const fontSize = 15;
+  ctx.save();
+  ctx.font         = `bold ${fontSize}px Arial, sans-serif`;
+  ctx.fillStyle    = "#be1239";
+  ctx.globalAlpha  = 0.20;
+  ctx.textAlign    = "center";
+  ctx.textBaseline = "middle";
+
+  const pw    = 620;  
+  const ph    = 88;   
+  const angle = -30 * (Math.PI / 180);
+
+  const diag = Math.sqrt(canvas.width * canvas.width + canvas.height * canvas.height);
+  const cols = Math.ceil(diag / pw) + 2;
+  const rows = Math.ceil(diag / ph) + 2;
+
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate(angle);
+  for (let row = -rows; row <= rows; row++) {
+    for (let col = -cols; col <= cols; col++) {
+      ctx.fillText(WATERMARK_TEXT, col * pw, row * ph);
+    }
+  }
+  ctx.restore();
+
+  return new Promise((res) => canvas.toBlob(res, "image/png", 0.95));
+}
+
+// ── Komponen utama ────────────────────────────────────────────────────────────
+export default function PdfPreviewOverlay({ onClose, document: doc }) {
+  const [zoom,             setZoom]             = useState(100);
+  const [previewUrl,       setPreviewUrl]       = useState(null);
+  const [mimeType,         setMimeType]         = useState(null);
+  const [filename,         setFilename]         = useState(doc.judul);
+  const [loading,          setLoading]          = useState(true);
+  const [error,            setError]            = useState(null);
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+  const [downloading,      setDownloading]      = useState(false);
+  const [dlProgress,       setDlProgress]       = useState("");
+
+  const fetchPreview = () => {
+    setLoading(true);
+    setError(null);
+    api.get(`/documents/${doc.id}/preview`)
+      .then(({ data }) => {
+        setPreviewUrl(data.url);
+        setMimeType(data.mimeType || "application/octet-stream");
+        setFilename(data.filename || doc.judul);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err?.response?.data?.error || err.message || "Gagal memuat file");
+        setLoading(false);
+      });
+  };
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 800);
+    fetchPreview();
     const handler = (e) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", handler);
-    return () => { clearTimeout(t); window.removeEventListener("keydown", handler); };
-  }, [onClose]);
+    return () => window.removeEventListener("keydown", handler);
+  }, [doc.id]);
 
+  // ── Download Original ────────────────────────────────────────────────────────
+  const handleDownloadOriginal = async () => {
+    setShowDownloadMenu(false);
+    setDownloading(true);
+    setDlProgress("Mengunduh file dari server...");
+    try {
+      const response = await api.get(`/documents/${doc.id}/download-stream`, {
+        responseType: "blob",
+      });
+      let dlFilename = filename;
+      const cd = response.headers?.["content-disposition"] || "";
+      const match = cd.match(/filename\*?=(?:UTF-8'')?["']?([^"';\n]+)/i);
+      if (match?.[1]) dlFilename = decodeURIComponent(match[1]);
+
+      const url = URL.createObjectURL(new Blob([response.data]));
+      const a   = document.createElement("a");
+      a.href = url; a.download = dlFilename;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+    } catch (err) {
+      alert("Gagal mengunduh file: " + (err?.response?.data?.error || err.message));
+    } finally {
+      setDownloading(false); setDlProgress("");
+    }
+  };
+
+  // ── Download Protected Copy ──────────────────────────────────────────────────
+  const handleDownloadProtected = async () => {
+    setShowDownloadMenu(false);
+    setDownloading(true);
+    try {
+      if (isPdfMime(mimeType)) {
+        setDlProgress("Server sedang mencetak watermark PDF...");
+        const response = await api.get(`/documents/${doc.id}/download-protected`, { responseType: "blob" });
+        const blob = new Blob([response.data], { type: "application/pdf" });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement("a");
+        a.href = url; a.download = filename.replace(/\.pdf$/i, "") + "_protected.pdf";
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a); URL.revokeObjectURL(url);
+
+      } else if (isImageMime(mimeType)) {
+        setDlProgress("Mengambil gambar dari server...");
+        const response = await api.get(`/documents/${doc.id}/download-protected`, { responseType: "blob" });
+        setDlProgress("Menambahkan watermark pada gambar...");
+        const imgBlob = new Blob([response.data], { type: mimeType });
+        const resultBlob = await buildWatermarkedImageBlob(imgBlob);
+        const url  = URL.createObjectURL(resultBlob);
+        const a    = document.createElement("a");
+        a.href = url; a.download = filename.replace(/\.[^.]+$/, "") + "_protected.png";
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a); URL.revokeObjectURL(url);
+
+      } else {
+        alert("Tipe file ini belum mendukung Protected Copy. Gunakan Download Original.");
+      }
+    } catch (err) {
+      alert("Gagal mengunduh Protected Copy: " + (err?.response?.data?.error || err.message || "Terjadi kesalahan"));
+    } finally {
+      setDownloading(false); setDlProgress("");
+    }
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-[100] bg-foreground/90 flex flex-col animate-fade-in">
+
+      {/* ── Toolbar ── */}
       <div className="flex items-center justify-between px-4 py-3 bg-card border-b border-border">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="font-semibold text-sm text-foreground truncate max-w-xs">{doc.judul}</span>
-          {isAdmin ? (
-            <div className="flex items-center rounded-lg border border-border overflow-hidden shrink-0">
-              <button onClick={() => setViewMode("master")} className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium transition-colors ${viewMode === "master" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}>
-                <Shield size={12} /> Master
-              </button>
-              <button onClick={() => setViewMode("distributed")} className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium transition-colors border-l border-border ${viewMode === "distributed" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}>
-                <FileText size={12} /> Distributed
-              </button>
-            </div>
-          ) : (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border font-medium shrink-0">Distributed Copy</span>
-          )}
+          <FileText size={18} className="text-primary shrink-0" />
+          <span className="font-semibold text-sm text-foreground truncate max-w-xs">
+            {doc.judul}
+          </span>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-medium shrink-0">
+            Preview Document
+          </span>
         </div>
+
         <div className="flex items-center gap-2">
-          <button onClick={() => setZoom((z) => Math.max(50, z - 25))} className="p-2 rounded hover:bg-muted"><ZoomOut size={18} /></button>
+          <button onClick={() => setZoom((z) => Math.max(50, z - 25))} className="p-2 rounded hover:bg-muted" disabled={loading || !!error}>
+            <ZoomOut size={18} />
+          </button>
           <span className="text-sm text-muted-foreground w-12 text-center">{zoom}%</span>
-          <button onClick={() => setZoom((z) => Math.min(200, z + 25))} className="p-2 rounded hover:bg-muted"><ZoomIn size={18} /></button>
-          <button onClick={() => setZoom(100)} className="p-2 rounded hover:bg-muted"><Maximize size={18} /></button>
+          <button onClick={() => setZoom((z) => Math.min(200, z + 25))} className="p-2 rounded hover:bg-muted" disabled={loading || !!error}>
+            <ZoomIn size={18} />
+          </button>
+          <button onClick={() => setZoom(100)} className="p-2 rounded hover:bg-muted" disabled={loading || !!error}>
+            <Maximize size={18} />
+          </button>
+
           <div className="w-px h-6 bg-border mx-1" />
+
+          {/* Download dropdown */}
           <div className="relative">
-            {isAdmin ? (
+            <button
+              onClick={() => setShowDownloadMenu((v) => !v)}
+              disabled={loading || !!error || downloading}
+              className="p-2 rounded hover:bg-muted flex items-center gap-1 disabled:opacity-50"
+              title="Download"
+            >
+              {downloading
+                ? <div className="w-[18px] h-[18px] border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                : <Download size={18} />
+              }
+              <span className="text-xs">▾</span>
+            </button>
+
+            {showDownloadMenu && (
               <>
-                <button onClick={() => setShowDownloadMenu(!showDownloadMenu)} className="p-2 rounded hover:bg-muted flex items-center gap-1" title="Download">
-                  <Download size={18} />
-                  <span className="text-xs">▾</span>
-                </button>
-                {showDownloadMenu && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={() => setShowDownloadMenu(false)} />
-                    <div className="absolute top-full right-0 mt-1 w-52 bg-card border border-border rounded-lg shadow-lg z-20">
-                      <button onClick={() => { alert("Simulasi: Mengunduh Master File (editable version)"); setShowDownloadMenu(false); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted rounded-t-lg flex items-center gap-2">
-                        <Shield size={14} className="text-primary" /> Master File
-                        <span className="text-xs text-muted-foreground ml-auto">Editable</span>
-                      </button>
-                      <button onClick={() => { alert("Simulasi: Mengunduh Distributed Copy (protected PDF)"); setShowDownloadMenu(false); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted rounded-b-lg flex items-center gap-2 border-t border-border">
-                        <FileText size={14} className="text-muted-foreground" /> Distributed Copy
-                        <span className="text-xs text-muted-foreground ml-auto">Protected</span>
-                      </button>
+                <div className="fixed inset-0 z-10" onClick={() => setShowDownloadMenu(false)} />
+                <div className="absolute top-full right-0 mt-1 w-64 bg-card border border-border rounded-lg shadow-xl z-20">
+                  <div className="px-4 py-2 text-xs font-semibold text-muted-foreground border-b border-border uppercase tracking-wide">
+                    Pilih Jenis Download
+                  </div>
+                  <button onClick={handleDownloadOriginal} className="w-full text-left px-4 py-3 text-sm hover:bg-muted flex flex-col gap-0.5 transition-colors">
+                    <div className="flex items-center gap-2 font-medium text-foreground">
+                      <FileText size={14} className="text-primary" />
+                      Download Original File
                     </div>
-                  </>
-                )}
+                    <div className="text-xs text-muted-foreground pl-5">File asli · Tanpa watermark</div>
+                  </button>
+                  <button onClick={handleDownloadProtected} className="w-full text-left px-4 py-3 text-sm hover:bg-muted flex flex-col gap-0.5 border-t border-border rounded-b-lg transition-colors">
+                    <div className="flex items-center gap-2 font-medium text-foreground">
+                      <Shield size={14} className="text-primary" />
+                      Download Protected Copy
+                    </div>
+                    <div className="text-xs text-muted-foreground pl-5">Watermark dicetak di file · Untuk distribusi</div>
+                  </button>
+                </div>
               </>
-            ) : (
-              <button onClick={() => alert("Simulasi: Mengunduh Distributed Copy (protected PDF)")} className="p-2 rounded hover:bg-muted" title="Download">
-                <Download size={18} />
-              </button>
             )}
           </div>
-          <button className="p-2 rounded hover:bg-muted"><Printer size={18} /></button>
+
           <div className="w-px h-6 bg-border mx-1" />
-          <button onClick={onClose} className="p-2 rounded hover:bg-destructive/10 text-destructive"><X size={20} /></button>
+          <button onClick={onClose} className="p-2 rounded hover:bg-destructive/10 text-destructive">
+            <X size={20} />
+          </button>
         </div>
       </div>
-      <div className="flex-1 overflow-auto flex items-start justify-center p-8">
-        {loading ? (
+
+      {/* ── Progress download ── */}
+      {downloading && dlProgress && (
+        <div className="bg-primary/10 border-b border-primary/20 px-4 py-1.5 flex items-center justify-center gap-2">
+          <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin shrink-0" />
+          <span className="text-xs text-primary font-medium">{dlProgress}</span>
+        </div>
+      )}
+
+      {/* ── Content ── */}
+      <div className="flex-1 overflow-auto flex items-start justify-center p-8 bg-muted/30">
+
+        {loading && (
           <div className="flex flex-col items-center gap-3 mt-24">
-            <div className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin" />
-            <span className="text-primary-foreground/70 text-sm">Memuat dokumen...</span>
+            <div className="w-10 h-10 border-[3px] border-primary border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm text-muted-foreground">Memuat dokumen dari storage...</span>
           </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow-2xl transition-transform origin-top relative" style={{ transform: `scale(${zoom / 100})`, width: "794px", minHeight: "1123px" }}>
-            <iframe srcDoc={htmlContent} title={`Preview ${doc.judul}`} className="w-full border-0 rounded-lg" style={{ width: "794px", minHeight: "1123px", height: "1123px" }} sandbox="allow-same-origin" />
-            {viewMode === "distributed" && (
-              <div className="absolute inset-0 pointer-events-none flex items-center justify-center rounded-lg overflow-hidden">
-                <span className="text-6xl font-bold text-muted-foreground/10 rotate-[-30deg] select-none whitespace-nowrap tracking-widest">DISTRIBUTED COPY</span>
+        )}
+
+        {error && !loading && (
+          <div className="flex flex-col items-center gap-4 mt-24 max-w-md text-center">
+            <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center">
+              <AlertCircle size={28} className="text-destructive" />
+            </div>
+            <div>
+              <p className="font-semibold text-foreground mb-1">Gagal Memuat Dokumen</p>
+              <p className="text-sm text-muted-foreground">{error}</p>
+            </div>
+            <button onClick={fetchPreview} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90">
+              Coba Lagi
+            </button>
+          </div>
+        )}
+
+        {!loading && !error && previewUrl && (
+          <div
+            className="relative transition-transform origin-top"
+            style={{ transform: `scale(${zoom / 100})` }}
+          >
+            <WatermarkOverlay />
+
+            {isPdfMime(mimeType) && (
+              <iframe
+                src={previewUrl}
+                title={`Preview ${doc.judul}`}
+                className="rounded-lg shadow-2xl border-0 bg-white"
+                style={{ width: "794px", height: "1123px" }}
+                sandbox="allow-same-origin allow-scripts"
+              />
+            )}
+
+            {isImageMime(mimeType) && (
+              <img
+                src={previewUrl}
+                alt={`Preview ${doc.judul}`}
+                className="rounded-lg shadow-2xl block"
+                style={{ maxWidth: "794px", minHeight: "300px", objectFit: "contain" }}
+              />
+            )}
+
+            {!isPdfMime(mimeType) && !isImageMime(mimeType) && (
+              <div className="w-[794px] min-h-[400px] bg-white rounded-lg shadow-2xl flex flex-col items-center justify-center gap-4 p-8">
+                <FileText size={48} className="text-muted-foreground" />
+                <p className="text-center text-muted-foreground text-sm max-w-xs">
+                  File bertipe <strong>{mimeType}</strong> tidak dapat ditampilkan secara inline.
+                </p>
+                <button onClick={handleDownloadOriginal} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90">
+                  Download File
+                </button>
               </div>
             )}
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Watermark Overlay ─────────────────────────────────────────────────────────
+function WatermarkOverlay() {
+  const pw = 620; 
+  const ph = 88;  
+
+  return (
+    <div
+      className="absolute inset-0 z-10 pointer-events-none overflow-hidden rounded-lg"
+      style={{ userSelect: "none" }}
+    >
+      <svg
+        width="100%"
+        height="100%"
+        xmlns="http://www.w3.org/2000/svg"
+        style={{ position: "absolute", inset: 0 }}
+      >
+        <defs>
+          <pattern
+            id="wm-pattern"
+            x="0"
+            y="0"
+            width={pw}
+            height={ph}
+            patternUnits="userSpaceOnUse"
+            patternTransform="rotate(-30)"
+          >
+            {/* Baris utama */}
+            <text
+              x={pw / 2}
+              y={ph / 2}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize="15"
+              fontWeight="bold"
+              fontFamily="Arial, sans-serif"
+              fill="#be1239"
+              fillOpacity="0.20"
+              letterSpacing="0.5"
+            >
+              {WATERMARK_TEXT}
+            </text>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#wm-pattern)" />
+      </svg>
     </div>
   );
 }

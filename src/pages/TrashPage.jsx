@@ -1,4 +1,5 @@
 import { useApp } from "@/contexts/AppContext";
+import { useEffect } from "react";
 import AppHeader from "@/components/layout/AppHeader";
 import {
   Trash2,
@@ -11,12 +12,17 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 
 export default function TrashPage() {
-  // Context
   const {
     trashedDocuments = [],
     restoreDocument,
     permanentlyDeleteDocument,
+    loadTrashedDocuments,
   } = useApp();
+
+  // Phase 4: load dokumen trash dari backend saat halaman dibuka
+  useEffect(() => {
+    loadTrashedDocuments();
+  }, [loadTrashedDocuments]);
 
   return (
     <div className="flex flex-col h-full">
@@ -75,9 +81,8 @@ export default function TrashPage() {
               </div>
             ) : (
               trashedDocuments.map((doc) => {
-                // Simulasi deleted date
-                const deletedDate = doc.deletedAt
-                  ? new Date(doc.deletedAt)
+                const deletedDate = doc.deletedAt || doc.deleted_at
+                  ? new Date(doc.deletedAt || doc.deleted_at)
                   : new Date();
 
                 return (

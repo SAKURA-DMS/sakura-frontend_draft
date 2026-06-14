@@ -1,11 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
 
-/**
- * Cinematic SVG cherry blossom branch with 3D flowers.
- * Flowers are well-spaced with no overlapping.
- * Click any flower to burst petals + scroll to section (if interactive).
- */
-
 /* ── Flower positions — well-spaced, no overlap (viewBox 0 0 1200 800) ── */
 export const FLOWER_NODES = [
   // Interactive flowers (large, 75-80px)

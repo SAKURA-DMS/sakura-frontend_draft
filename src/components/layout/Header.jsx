@@ -5,6 +5,46 @@ import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
+function AvatarImage({ src, nama, className }) {
+  const [broken, setBroken] = useState(false);
+
+  useEffect(() => {
+    setBroken(false);
+  }, [src]);
+
+  const initials = (nama || "U")
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
+  const isValidSrc =
+    src &&
+    !broken &&
+    (src.startsWith("data:image/") || src.startsWith("http") || src.startsWith("/"));
+
+  if (!isValidSrc) {
+    return (
+      <div
+        className={`${className} bg-primary/20 flex items-center justify-center text-primary font-bold select-none`}
+        aria-label={nama}
+      >
+        <span className="text-xs leading-none">{initials}</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={nama || "Avatar"}
+      className={className}
+      onError={() => setBroken(true)}
+    />
+  );
+}
+
 export default function AppHeader({ title, subtitle }) {
   const { currentUser, notifications, markNotificationRead, markAllNotificationsRead, logout } = useApp();
   const navigate = useNavigate();
@@ -89,7 +129,12 @@ export default function AppHeader({ title, subtitle }) {
             className="flex items-center gap-2 p-1.5 pr-3 rounded-xl hover:bg-muted transition-all duration-200"
             aria-label="Profil"
           >
-            <img src={currentUser.avatar} alt="" className="w-8 h-8 rounded-lg object-cover ring-2 ring-border" />
+            {/* FIX: ganti <img> dengan AvatarImage yang punya onError fallback */}
+            <AvatarImage
+              src={currentUser.avatar}
+              nama={currentUser.nama}
+              className="w-8 h-8 rounded-lg object-cover ring-2 ring-border"
+            />
             <div className="hidden sm:block text-left">
               <div className="text-xs font-semibold text-foreground leading-tight">{currentUser.nama}</div>
               <div className="text-[10px] text-muted-foreground">{currentUser.role}</div>

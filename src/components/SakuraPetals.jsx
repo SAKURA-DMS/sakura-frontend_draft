@@ -15,7 +15,7 @@ function randomBetween(min, max) {
 
 /**
  * @param {number} count
- * @param {Array<{x:number, y:number}>} [blossomPositions] — if provided, petals originate from these positions (% coords)
+ * @param {Array<{x:number, y:number}>} [blossomPositions] 
  */
 export default function SakuraPetals({ count = 14, blossomPositions }) {
   const petals = useMemo(() => {

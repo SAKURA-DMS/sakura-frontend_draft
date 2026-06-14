@@ -266,7 +266,11 @@ export const PERMISSIONS = [
 ];
 
 export const ROLE_PERMISSIONS = {
+<<<<<<< HEAD
   "Operator/TU": ["dashboard.view", "documents.upload", "documents.archive", "documents.edit", "users.manage", "roles.manage", "audit.view", "audit.addNote", "profile.edit"],
+=======
+  "Operator/TU": ["dashboard.view", "documents.upload", "documents.archive", "documents.edit", "users.view", "users.manage", "users.approve", "users.manageRole", "roles.manage", "audit.view", "audit.addNote", "profile.edit"],
+>>>>>>> frontend/hilma
   "Kepala Sekolah": ["dashboard.view", "documents.approve", "documents.reject", "documents.archive", "audit.view", "profile.edit"],
   "Guru": ["dashboard.view", "documents.archive", "profile.edit"],
 };

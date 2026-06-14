@@ -1,8 +1,5 @@
 import { useMemo } from "react";
 
-/**
- * Subtle floating tiny pink dots for atmospheric depth.
- */
 function rand(min, max) {
   return Math.random() * (max - min) + min;
 }
