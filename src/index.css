@@ -5,15 +5,6 @@
 @tailwind utilities;
 
 @layer base {
-<<<<<<< HEAD
-  /* ═══════════════════════════════════════════════════════════
-     SAKURA — Tema Profesional Sekolah
-     Primary: Deep Maroon (wine) — institutional & trustworthy
-     Light mode: Clean white/gray — mudah dibaca, tidak terlalu pink
-     Dark mode: Deep navy-gray — kontras tinggi, tidak pink-tinted
-  ═══════════════════════════════════════════════════════════ */
-=======
->>>>>>> frontend/hilma
   :root {
     /* Backgrounds */
     --background: 210 20% 98%;
@@ -274,7 +265,7 @@
   transform: scale(1.15) rotateX(8deg) rotateY(-8deg);
 }
 
-/* ── Cinematic petal falling animations ── */
+/* -- Cinematic petal falling animations -- */
 @keyframes petalFall {
   0% {
     transform: translate3d(0, 0, 0) rotate(0deg) rotateX(0deg) rotateY(0deg) scale(1);

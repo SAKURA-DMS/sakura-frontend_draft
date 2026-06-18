@@ -1,4 +1,4 @@
-import avatarPrincipal from "@/assets/avatar_principal.jpg";
+﻿import avatarPrincipal from "@/assets/avatar_principal.jpg";
 import avatarAdmin from "@/assets/avatar_admin.jpg";
 import avatarStaff from "@/assets/avatar_staff.jpg";
 import avatarTeacher from "@/assets/avatar_teacher.jpg";
@@ -39,7 +39,7 @@ export const DOCUMENT_TYPES = [
 // Mirror of `document_counters` table (mutable state managed in AppContext)
 export const INITIAL_DOCUMENT_COUNTERS = [];
 
-// Mirror of `folders` table — hierarchical: categories → document types (→ tahun_ajaran for Data Siswa)
+// Mirror of `folders` table â€” hierarchical: categories â†’ document types (â†’ tahun_ajaran for Data Siswa)
 export const FOLDERS = [
   // Root category folders
   { folder_id: 1, folder_name: "Data Siswa", parent_id: null, category_id: 1, type_id: null, description: "Berisi dokumen administrasi siswa seperti buku klapper, buku induk, ijazah, dan SKHU." },
@@ -69,9 +69,9 @@ export const FOLDERS = [
 export const KATEGORI_OPTIONS = CATEGORIES.map((c) => c.category_name);
 
 // Dynamic form field definitions per category (maps to separate DB tables)
-// category_id → fields definition
+// category_id â†’ fields definition
 export const CATEGORY_FORM_FIELDS = {
-  // Data Siswa → student_records table
+  // Data Siswa â†’ student_records table
   1: [
     { key: "namaSiswa", label: "Nama Siswa", placeholder: "Nama lengkap siswa", required: true },
     { key: "nis", label: "NIS", placeholder: "Nomor Induk Siswa" },
@@ -84,7 +84,7 @@ export const CATEGORY_FORM_FIELDS = {
     { key: "namaOrangTua", label: "Nama Orang Tua", placeholder: "Nama lengkap orang tua/wali" },
     { key: "noHpOrangTua", label: "No HP Orang Tua", placeholder: "08xxxxxxxxxx" },
   ],
-  // Data Guru → teacher_records table
+  // Data Guru â†’ teacher_records table
   2: [
     { key: "namaGuru", label: "Nama Guru", placeholder: "Nama lengkap guru", required: true },
     { key: "nip", label: "NIP", placeholder: "Nomor Induk Pegawai" },
@@ -93,7 +93,7 @@ export const CATEGORY_FORM_FIELDS = {
     { key: "pendidikanTerakhir", label: "Pendidikan Terakhir", placeholder: "Contoh: S1 Pendidikan" },
     { key: "statusKepegawaian", label: "Status Kepegawaian", type: "select", options: ["PNS", "PPPK", "Honorer", "GTT"] },
   ],
-  // Sarana Prasarana → inventory_items table
+  // Sarana Prasarana â†’ inventory_items table
   3: [
     { key: "kodeBarang", label: "Kode Barang", placeholder: "Contoh: INV-001", required: true },
     { key: "namaBarang", label: "Nama Barang", placeholder: "Contoh: Meja Guru" },
@@ -106,7 +106,7 @@ export const CATEGORY_FORM_FIELDS = {
 
 // Surat Menyurat has sub-type specific fields (maps to different tables per type)
 export const SURAT_TYPE_FORM_FIELDS = {
-  // Buku Agenda Surat Masuk (type_id: 10) → incoming_letters table
+  // Buku Agenda Surat Masuk (type_id: 10) â†’ incoming_letters table
   10: [
     { key: "nomorAgenda", label: "Nomor Agenda", placeholder: "Contoh: 001/SM/2026", required: true },
     { key: "nomorSurat", label: "Nomor Surat", placeholder: "Nomor surat masuk" },
@@ -115,7 +115,7 @@ export const SURAT_TYPE_FORM_FIELDS = {
     { key: "pengirim", label: "Pengirim", placeholder: "Contoh: Dinas Pendidikan" },
     { key: "perihal", label: "Perihal", placeholder: "Perihal surat" },
   ],
-  // Buku Agenda Surat Keluar (type_id: 11) → outgoing_letters table
+  // Buku Agenda Surat Keluar (type_id: 11) â†’ outgoing_letters table
   11: [
     { key: "nomorAgenda", label: "Nomor Agenda", placeholder: "Contoh: 001/SK/2026", required: true },
     { key: "nomorSurat", label: "Nomor Surat", placeholder: "Nomor surat keluar" },
@@ -124,7 +124,7 @@ export const SURAT_TYPE_FORM_FIELDS = {
     { key: "perihal", label: "Perihal", placeholder: "Perihal surat" },
     { key: "penandatangan", label: "Penandatangan", placeholder: "Nama penandatangan" },
   ],
-  // Kumpulan Surat Keputusan (type_id: 12) → sk_records table
+  // Kumpulan Surat Keputusan (type_id: 12) â†’ sk_records table
   12: [
     { key: "nomorSK", label: "Nomor SK", placeholder: "Contoh: 001/SK/2026", required: true },
     { key: "tanggalSK", label: "Tanggal SK", placeholder: "DD/MM/YYYY", type: "date" },
@@ -266,11 +266,7 @@ export const PERMISSIONS = [
 ];
 
 export const ROLE_PERMISSIONS = {
-<<<<<<< HEAD
   "Operator/TU": ["dashboard.view", "documents.upload", "documents.archive", "documents.edit", "users.manage", "roles.manage", "audit.view", "audit.addNote", "profile.edit"],
-=======
-  "Operator/TU": ["dashboard.view", "documents.upload", "documents.archive", "documents.edit", "users.view", "users.manage", "users.approve", "users.manageRole", "roles.manage", "audit.view", "audit.addNote", "profile.edit"],
->>>>>>> frontend/hilma
   "Kepala Sekolah": ["dashboard.view", "documents.approve", "documents.reject", "documents.archive", "audit.view", "profile.edit"],
   "Guru": ["dashboard.view", "documents.archive", "profile.edit"],
 };
@@ -511,3 +507,5 @@ export function getFolderIdForDocument(categoryId, typeId) {
   const folder = FOLDERS.find((f) => f.category_id === categoryId && f.type_id === typeId);
   return folder ? folder.folder_id : null;
 }
+
+

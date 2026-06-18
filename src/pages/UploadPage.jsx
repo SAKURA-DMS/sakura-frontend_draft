@@ -1,20 +1,12 @@
 import { useState } from "react";
 import AppHeader from "@/components/layout/AppHeader";
-<<<<<<< HEAD
-import UploadForm from "@/components/upload/UploadForm"; // PASTIKAN PATH INI BENAR
-=======
 import UploadForm from "@/components/upload/UploadForm";
->>>>>>> frontend/hilma
 import { useApp } from "@/contexts/AppContext";
 import { Info } from "lucide-react";
 
 export default function UploadPage() {
   const { currentUser } = useApp();
 
-<<<<<<< HEAD
-  // Pengaman jika data user lambat dimuat, cegah layar blank/error null
-=======
->>>>>>> frontend/hilma
   if (!currentUser) {
     return (
       <div className="flex h-screen items-center justify-center text-muted-foreground">

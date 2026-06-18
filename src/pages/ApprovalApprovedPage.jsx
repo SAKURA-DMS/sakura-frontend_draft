@@ -2,11 +2,7 @@ import { useState } from "react";
 import { CheckCircle, XCircle, Archive } from "lucide-react";
 import AppHeader from "@/components/layout/AppHeader";
 import { useApp } from "@/contexts/AppContext";
-<<<<<<< HEAD
-import DocumentDetailModal from "@/components/modals/DocumentDetailModal";
-=======
 import DocumentDetailModal from "@/components/document/DocumentDetail"; // ← FIX: ganti dari modals/ ke document/
->>>>>>> frontend/hilma
 import { format } from "date-fns";
 
 export default function ApprovalApprovedPage() {
@@ -54,8 +50,4 @@ export default function ApprovalApprovedPage() {
       {detailDoc && <DocumentDetailModal document={detailDoc} onClose={() => setDetailDoc(null)} />}
     </>
   );
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> frontend/hilma

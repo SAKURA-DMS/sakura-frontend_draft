@@ -103,12 +103,27 @@ function AppWithSettings() {
   );
 }
 
+// const App = () => (
+//   <QueryClientProvider client={queryClient}>
+//     <TooltipProvider>
+//       <Toaster />
+//       <Sonner />
+//       <BrowserRouter>
+//         <AppProvider>
+//           <AppWithSettings />
+//         </AppProvider>
+//       </BrowserRouter>
+//     </TooltipProvider>
+//   </QueryClientProvider>
+// );
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      {/* Cukup tambahkan basename di baris bawah ini */}
+      <BrowserRouter basename="/sakura-frontend_draft">
         <AppProvider>
           <AppWithSettings />
         </AppProvider>

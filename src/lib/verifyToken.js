@@ -1,9 +1,6 @@
-<<<<<<< HEAD
 // Simple secure hash for document verification tokens
 // Uses a combination of document ID, timestamp, and a system key
 
-=======
->>>>>>> frontend/hilma
 const SYSTEM_KEY = "SAKURA-SMPN4-VERIFY-2026";
 
 export function generateToken(docId) {

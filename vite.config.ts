@@ -7,6 +7,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // Menambahkan base path untuk GitHub Pages sesuai nama repository organisasi kamu
+  base: "/sakura-frontend_draft/", 
   server: {
     host: "::",
     port: 8080,
