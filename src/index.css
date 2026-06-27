@@ -1,0 +1,589 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Backgrounds */
+    --background: 210 20% 98%;
+    --foreground: 215 25% 16%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 16%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 16%;
+
+    /* Primary: Deep Maroon — profesional, identitas sekolah */
+    --primary: 347 62% 38%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary: Muted rose tint */
+    --secondary: 347 25% 93%;
+    --secondary-foreground: 347 50% 28%;
+
+    /* Muted: Near-neutral gray */
+    --muted: 210 14% 95%;
+    --muted-foreground: 215 12% 46%;
+
+    /* Accent: Warmer maroon for hover/focus */
+    --accent: 347 55% 44%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 210 14% 89%;
+    --input: 210 14% 86%;
+    --ring: 347 55% 40%;
+
+    --radius: 0.75rem;
+
+    /* Sakura semantic colors */
+    --sakura-success: 142 65% 32%;
+    --sakura-warning: 38 90% 45%;
+    --sakura-soft: 347 18% 97%;
+    --sakura-info: 210 80% 48%;
+    --sakura-purple: 347 55% 40%;
+    --sakura-maroon: 347 62% 30%;
+    --sakura-pink: 347 55% 52%;
+    --sakura-violet: 347 48% 36%;
+
+    /* Sidebar: White & clean */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 215 20% 32%;
+    --sidebar-primary: 347 62% 38%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 347 30% 95%;
+    --sidebar-accent-foreground: 347 55% 34%;
+    --sidebar-border: 210 14% 91%;
+    --sidebar-ring: 347 55% 40%;
+
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.04);
+  }
+
+  .dark {
+    /* Dark mode: Proper deep navy-gray, NOT pink-tinted */
+    --background: 220 16% 11%;
+    --foreground: 210 20% 92%;
+
+    --card: 220 14% 16%;
+    --card-foreground: 210 18% 90%;
+
+    --popover: 220 14% 16%;
+    --popover-foreground: 210 18% 90%;
+
+    /* Primary in dark: lighter maroon so it's visible */
+    --primary: 347 58% 58%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 12% 22%;
+    --secondary-foreground: 210 16% 82%;
+
+    --muted: 220 12% 18%;
+    --muted-foreground: 215 10% 54%;
+
+    --accent: 347 52% 54%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 60% 50%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 220 12% 22%;
+    --input: 220 12% 24%;
+    --ring: 347 52% 55%;
+
+    --sakura-success: 142 55% 44%;
+    --sakura-warning: 38 82% 52%;
+    --sakura-soft: 220 14% 14%;
+    --sakura-info: 210 75% 58%;
+    --sakura-purple: 347 52% 55%;
+    --sakura-maroon: 347 45% 28%;
+    --sakura-pink: 347 50% 60%;
+    --sakura-violet: 347 42% 50%;
+
+    /* Sidebar in dark: deeper than background */
+    --sidebar-background: 220 16% 9%;
+    --sidebar-foreground: 215 14% 70%;
+    --sidebar-primary: 347 58% 58%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 18%;
+    --sidebar-accent-foreground: 347 50% 68%;
+    --sidebar-border: 220 12% 16%;
+    --sidebar-ring: 347 45% 45%;
+
+    --sidebar-background: 340 10% 10%;
+    --sidebar-foreground: 340 8% 75%;
+    --sidebar-primary: 347 55% 52%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 347 30% 18%;
+    --sidebar-accent-foreground: 347 55% 65%;
+    --sidebar-border: 340 10% 18%;
+    --sidebar-ring: 347 45% 40%;
+
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.2);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.25), 0 2px 4px -2px rgb(0 0 0 / 0.15);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.15);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.3), 0 8px 10px -6px rgb(0 0 0 / 0.15);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+    font-size: var(--base-font-size, 15px);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 3px;
+  }
+
+  .glass {
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+  }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Sakura petal falling animation */
+@keyframes sakura-fall {
+  0% {
+    transform: translateY(-10%) translateX(0) rotate(0deg) scale(1);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(110vh) translateX(var(--sway, 80px)) rotate(var(--rotation, 360deg)) scale(0.6);
+    opacity: 0;
+  }
+}
+
+@keyframes sakura-fall-2 {
+  0% {
+    transform: translateY(-10%) translateX(0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.9;
+  }
+  50% {
+    transform: translateY(50vh) translateX(calc(var(--sway, 60px) * -0.5)) rotate(180deg);
+  }
+  90% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(110vh) translateX(var(--sway, 60px)) rotate(var(--rotation, 300deg));
+    opacity: 0;
+  }
+}
+
+.sakura-petal {
+  animation: sakura-fall var(--duration, 8s) var(--delay, 0s) infinite linear;
+}
+
+.sakura-petal-alt {
+  animation: sakura-fall-2 var(--duration, 10s) var(--delay, 0s) infinite linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sakura-petal,
+  .sakura-petal-alt {
+    animation: none !important;
+    display: none !important;
+  }
+}
+
+/* 3D blossom node animations */
+@keyframes blossom-float {
+  0%, 100% { transform: translate(-50%, -50%) translateY(0) rotateX(0deg) rotateY(0deg); }
+  50% { transform: translate(-50%, -50%) translateY(-4px) rotateX(5deg) rotateY(5deg); }
+}
+
+@keyframes blossom-glow {
+  0%, 100% { box-shadow: 0 0 8px hsl(340 80% 70% / 0.2); }
+  50% { box-shadow: 0 0 20px hsl(340 80% 70% / 0.45); }
+}
+
+.blossom-3d {
+  perspective: 600px;
+  transform-style: preserve-3d;
+  animation: blossom-float 4s ease-in-out infinite;
+}
+
+.blossom-3d:hover .blossom-circle {
+  animation: blossom-glow 1.5s ease-in-out infinite;
+  transform: scale(1.15) rotateX(8deg) rotateY(-8deg);
+}
+
+/* ── Cinematic petal falling animations ── */
+@keyframes petalFall {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) rotateX(0deg) rotateY(0deg) scale(1);
+    opacity: 0;
+  }
+  4% {
+    opacity: var(--petal-opacity, 0.85);
+  }
+  25% {
+    transform: translate3d(calc(var(--petal-drift, 40px) * -0.5), 25vh, 0)
+      rotate(calc(var(--petal-rotation, 360deg) * 0.25))
+      rotateX(var(--petal-tiltX, 20deg))
+      rotateY(calc(var(--petal-tiltY, 15deg) * 0.5))
+      scale(0.95);
+  }
+  50% {
+    transform: translate3d(calc(var(--petal-drift, 40px) * 0.3), 50vh, 0)
+      rotate(calc(var(--petal-rotation, 360deg) * 0.5))
+      rotateX(calc(var(--petal-tiltX, 20deg) * -0.5))
+      rotateY(var(--petal-tiltY, 15deg))
+      scale(0.9);
+    opacity: var(--petal-opacity, 0.8);
+  }
+  75% {
+    transform: translate3d(calc(var(--petal-drift, 40px) * -0.4), 80vh, 0)
+      rotate(calc(var(--petal-rotation, 360deg) * 0.75))
+      rotateX(var(--petal-tiltX, 20deg))
+      rotateY(calc(var(--petal-tiltY, 15deg) * -0.5))
+      scale(0.8);
+    opacity: calc(var(--petal-opacity, 0.7) * 0.6);
+  }
+  100% {
+    transform: translate3d(var(--petal-drift, 40px), 110vh, 0)
+      rotate(var(--petal-rotation, 360deg))
+      rotateX(calc(var(--petal-tiltX, 20deg) * -1))
+      rotateY(calc(var(--petal-tiltY, 15deg) * -1))
+      scale(0.6);
+    opacity: 0;
+  }
+}
+
+@keyframes petalFall2 {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) rotateX(0deg) scale(1);
+    opacity: 0;
+  }
+  6% {
+    opacity: var(--petal-opacity, 0.8);
+  }
+  25% {
+    transform: translate3d(calc(var(--petal-drift, -50px) * 0.4), 22vh, 0)
+      rotate(calc(var(--petal-rotation, 400deg) * 0.2))
+      rotateX(var(--petal-tiltX, 20deg))
+      scale(0.95);
+  }
+  50% {
+    transform: translate3d(calc(var(--petal-drift, -50px) * -0.3), 48vh, 0)
+      rotate(calc(var(--petal-rotation, 400deg) * 0.5))
+      rotateX(calc(var(--petal-tiltX, 20deg) * -0.3))
+      scale(0.88);
+    opacity: var(--petal-opacity, 0.75);
+  }
+  75% {
+    transform: translate3d(calc(var(--petal-drift, -50px) * 0.5), 78vh, 0)
+      rotate(calc(var(--petal-rotation, 400deg) * 0.8))
+      rotateX(var(--petal-tiltX, 20deg))
+      scale(0.75);
+    opacity: calc(var(--petal-opacity, 0.6) * 0.5);
+  }
+  100% {
+    transform: translate3d(var(--petal-drift, -50px), 110vh, 0)
+      rotate(var(--petal-rotation, 400deg))
+      rotateX(calc(var(--petal-tiltX, 20deg) * -1))
+      scale(0.5);
+    opacity: 0;
+  }
+}
+
+/* Petals looping within viewport (0 → 100vh) */
+@keyframes petalFallViewport {
+  0% {
+    transform: translate3d(0, -5vh, 0) rotate(0deg) rotateX(0deg) rotateY(0deg) scale(1);
+    opacity: 0;
+  }
+  4% {
+    opacity: var(--petal-opacity, 0.8);
+  }
+  25% {
+    transform: translate3d(calc(var(--petal-drift, 40px) * -0.5), 22vh, 0)
+      rotate(calc(var(--petal-rotation, 360deg) * 0.25))
+      rotateX(var(--petal-tiltX, 30deg))
+      rotateY(calc(var(--petal-tiltY, 15deg) * 0.5))
+      scale(0.95);
+  }
+  50% {
+    transform: translate3d(calc(var(--petal-drift, 40px) * 0.3), 48vh, 0)
+      rotate(calc(var(--petal-rotation, 360deg) * 0.5))
+      rotateX(calc(var(--petal-tiltX, 30deg) * -0.5))
+      rotateY(var(--petal-tiltY, 15deg))
+      scale(0.88);
+    opacity: calc(var(--petal-opacity, 0.7) * 0.7);
+  }
+  75% {
+    transform: translate3d(calc(var(--petal-drift, 40px) * -0.4), 75vh, 0)
+      rotate(calc(var(--petal-rotation, 360deg) * 0.75))
+      rotateX(var(--petal-tiltX, 30deg))
+      rotateY(calc(var(--petal-tiltY, 15deg) * -0.5))
+      scale(0.75);
+    opacity: calc(var(--petal-opacity, 0.5) * 0.45);
+  }
+  100% {
+    transform: translate3d(var(--petal-drift, 40px), 105vh, 0)
+      rotate(var(--petal-rotation, 360deg))
+      rotateX(calc(var(--petal-tiltX, 30deg) * -1))
+      rotateY(calc(var(--petal-tiltY, 15deg) * -1))
+      scale(0.6);
+    opacity: 0;
+  }
+}
+
+@keyframes petalFallViewport2 {
+  0% {
+    transform: translate3d(0, -5vh, 0) rotate(0deg) rotateX(0deg) scale(1);
+    opacity: 0;
+  }
+  6% {
+    opacity: var(--petal-opacity, 0.75);
+  }
+  25% {
+    transform: translate3d(calc(var(--petal-drift, -50px) * 0.4), 20vh, 0)
+      rotate(calc(var(--petal-rotation, 400deg) * 0.2))
+      rotateX(var(--petal-tiltX, 30deg))
+      scale(0.92);
+  }
+  50% {
+    transform: translate3d(calc(var(--petal-drift, -50px) * -0.3), 46vh, 0)
+      rotate(calc(var(--petal-rotation, 400deg) * 0.5))
+      rotateX(calc(var(--petal-tiltX, 30deg) * -0.3))
+      scale(0.82);
+    opacity: calc(var(--petal-opacity, 0.6) * 0.6);
+  }
+  75% {
+    transform: translate3d(calc(var(--petal-drift, -50px) * 0.5), 74vh, 0)
+      rotate(calc(var(--petal-rotation, 400deg) * 0.8))
+      rotateX(var(--petal-tiltX, 30deg))
+      scale(0.7);
+    opacity: calc(var(--petal-opacity, 0.5) * 0.4);
+  }
+  100% {
+    transform: translate3d(var(--petal-drift, -50px), 105vh, 0)
+      rotate(var(--petal-rotation, 400deg))
+      rotateX(calc(var(--petal-tiltX, 30deg) * -1))
+      scale(0.5);
+    opacity: 0;
+  }
+}
+
+/* Petal burst animation (click flowers) */
+@keyframes petalBurst {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  15% {
+    transform: translate(
+      calc(var(--burst-x) * 50px),
+      calc(var(--burst-y) * 50px)
+    ) rotate(180deg) scale(0.9);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(
+      calc(var(--sway) * 1px),
+      200vh
+    ) rotate(var(--spin, 720deg)) scale(0.5);
+    opacity: 0;
+  }
+}
+
+/* Scan line for QR mockup */
+@keyframes scanLine {
+  0% { top: 10%; opacity: 0.6; }
+  100% { top: 90%; opacity: 0; }
+}
+
+/* Step pulse for workflow */
+@keyframes stepPulse {
+  0%, 100% { transform: scale(1); opacity: 0.4; }
+  50% { transform: scale(1.3); opacity: 0; }
+}
+
+/* Tree sway */
+@keyframes sway {
+  0%, 100% { transform: rotate(-1deg); }
+  50% { transform: rotate(1deg); }
+}
+
+/* Branch draw / grow effect */
+@keyframes branchDraw {
+  0% {
+    stroke-dashoffset: 1200;
+    opacity: 0;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+/* Orbit for petals around logo */
+@keyframes orbit {
+  from { transform: rotate(0deg) translateX(var(--orbit-radius, 140px)) rotate(0deg); }
+  to { transform: rotate(360deg) translateX(var(--orbit-radius, 140px)) rotate(-360deg); }
+}
+
+/* Bloom-in animation for section cards */
+@keyframes bloomIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.85);
+    filter: blur(4px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.02);
+    filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0px);
+  }
+}
+
+/* Interactive flower glow */
+@keyframes flowerGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 6px rgba(232,96,122,0.5))
+            drop-shadow(0 0 12px rgba(232,96,122,0.25))
+            drop-shadow(2px 4px 8px rgba(200,80,100,0.3));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px rgba(232,96,122,0.8))
+            drop-shadow(0 0 24px rgba(232,96,122,0.4))
+            drop-shadow(0 0 36px rgba(255,182,193,0.5));
+  }
+}
+
+.sakura-flower-interactive {
+  animation: flowerGlow 2.5s ease-in-out infinite;
+}
+
+/* Force labels horizontal */
+.sakura-flower-label {
+  transform: none !important;
+  rotate: 0deg !important;
+  writing-mode: horizontal-tb !important;
+  text-orientation: mixed !important;
+}
+
+/* Floating atmospheric particles */
+@keyframes particleFloat {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.2;
+  }
+  25% {
+    transform: translate3d(8px, -12px, 0) scale(1.2);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translate3d(-5px, -20px, 0) scale(0.9);
+    opacity: 0.25;
+  }
+  75% {
+    transform: translate3d(10px, -8px, 0) scale(1.1);
+    opacity: 0.3;
+  }
+}
+
+/* Continuously spawned falling petals */
+@keyframes sakuraPetalFall {
+  0% {
+    transform: translate(0px, 0px) rotate(0deg) scale(1);
+  }
+  20% {
+    transform:
+      translate(calc(var(--sway) * 0.2), 18vh)
+      rotate(calc(var(--rot) * 0.2))
+      scale(0.97);
+  }
+  40% {
+    transform:
+      translate(calc(var(--sway) * 0.45), 38vh)
+      rotate(calc(var(--rot) * 0.4))
+      scale(0.94);
+  }
+  60% {
+    transform:
+      translate(calc(var(--sway) * 0.65), 57vh)
+      rotate(calc(var(--rot) * 0.6))
+      scale(0.9);
+  }
+  80% {
+    transform:
+      translate(calc(var(--sway) * 0.85), 78vh)
+      rotate(calc(var(--rot) * 0.8))
+      scale(0.87);
+    opacity: 0.3;
+  }
+  100% {
+    transform:
+      translate(var(--sway), 108vh)
+      rotate(var(--rot))
+      scale(0.85);
+    opacity: 0;
+  }
+}
