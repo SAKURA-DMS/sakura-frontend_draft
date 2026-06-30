@@ -31,14 +31,21 @@ export default function LogPage() {
       const raw = data.logs || [];
 
       const normalized = raw.map((t) => ({
-        docId:      t.document_id,
-        docTitle:   t.document_judul || `Dokumen #${t.document_id}`,
-        time:       t.created_at,
-        userId:     t.user_id,
-        userName:   t.nama   || "Sistem",
-        userAvatar: t.avatar || null,
-        userRole:   t.role   || "Sistem",
-        action:     t.action,
+          docId: t.document_id,
+          docTitle: t.document_judul || `Dokumen #${t.document_id}`,
+          time: t.created_at,
+          userId: t.user_id,
+          userName: t.nama || "Sistem",
+          userAvatar: t.avatar || null,
+          userRole: t.role || "Sistem",
+          action: t.action,
+
+          previousHash: t.previous_hash,
+          currentHash: t.current_hash,
+          integrityStatus: t.integrity_status,
+
+          oldValue: t.old_value,
+          newValue: t.new_value,
       }));
 
       // Filter khusus Kepala Sekolah
@@ -251,6 +258,97 @@ export default function LogPage() {
                             <FileText size={12} className="text-primary/70" />
                             {log.docTitle}
                           </div>
+                          {log.integrityStatus && (
+                          <div className="mt-2 space-y-2">
+
+                              {/* Integrity */}
+                              <div className="flex items-center gap-2">
+                                  <span
+                                      className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
+                                          log.integrityStatus === "VALID"
+                                              ? "bg-green-100 text-green-700"
+                                              : "bg-red-100 text-red-700"
+                                      }`}
+                                  >
+                                      {log.integrityStatus === "VALID"
+                                          ? "✓ Verified"
+                                          : "⚠ Invalid"}
+                                  </span>
+                              </div>
+
+                              {/* Hash */}
+                              <div className="text-[10px] text-muted-foreground space-y-1">
+                                  <div>
+                                      <span className="font-semibold">
+                                          Previous:
+                                      </span>{" "}
+                                      {log.previousHash
+                                          ? log.previousHash.substring(0,16) + "..."
+                                          : "--"}
+                                  </div>
+
+                                  <div>
+                                      <span className="font-semibold">
+                                          Current:
+                                      </span>{" "}
+                                      {log.currentHash
+                                          ? log.currentHash.substring(0,16) + "..."
+                                          : "--"}
+                                  </div>
+                              </div>
+
+                              {/* Before After */}
+                              {(log.oldValue || log.newValue) && (
+                                  <div className="grid grid-cols-2 gap-2 mt-2">
+
+                                      <div className="bg-red-50 rounded p-2">
+                                          <div className="font-semibold text-[11px] text-red-700">
+                                              Sebelum
+                                          </div>
+
+                                          {log.oldValue
+                                              ? Object.entries(log.oldValue).map(([k,v]) => (
+                                                  <div
+                                                      key={k}
+                                                      className="text-[10px]"
+                                                  >
+                                                      {k}: {String(v)}
+                                                  </div>
+                                              ))
+                                              : (
+                                                  <div className="text-[10px]">
+                                                      -
+                                                  </div>
+                                              )
+                                          }
+                                      </div>
+
+                                      <div className="bg-green-50 rounded p-2">
+                                          <div className="font-semibold text-[11px] text-green-700">
+                                              Sesudah
+                                          </div>
+
+                                          {log.newValue
+                                              ? Object.entries(log.newValue).map(([k,v]) => (
+                                                  <div
+                                                      key={k}
+                                                      className="text-[10px]"
+                                                  >
+                                                      {k}: {String(v)}
+                                                  </div>
+                                              ))
+                                              : (
+                                                  <div className="text-[10px]">
+                                                      -
+                                                  </div>
+                                              )
+                                          }
+                                      </div>
+
+                                  </div>
+                              )}
+                          </div>
+                      )}
                         </div>
                       ))}
                     </div>
