@@ -198,6 +198,7 @@ export default function SettingsPage() {
     settings,
     updateSettings,
     updateNotifications,
+    updateEmailNotification,
     updateScan,
     updateSecurity,
   } = useSettings();
@@ -535,6 +536,15 @@ export default function SettingsPage() {
         return (
           <Card title="Notifikasi" icon={Bell}>
             <div className="space-y-1 divide-y divide-border">
+              <Toggle
+                label="Email"
+                desc="Kirim notifikasi ke email"
+                checked={settings.notifications.email}
+                onChange={(value) =>
+                  updateEmailNotification(value)
+                }
+              />
+
               <Toggle
                 label="In-App"
                 desc="Tampilkan di panel notifikasi"

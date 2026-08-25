@@ -50,6 +50,17 @@ export async function updateAvatar(userId, avatar) {
 }
 
 /**
+ * Update preferensi toggle notifikasi email (hanya untuk diri sendiri)
+ * @param {number} userId
+ * @param {boolean} enabled
+ * @returns {Promise<{ message: string, notifEmailEnabled: boolean }>}
+ */
+export async function updateNotificationEmailPref(userId, enabled) {
+  const { data } = await api.patch(`/users/${userId}/notification-email`, { enabled });
+  return data;
+}
+
+/**
  * Hapus user secara permanen
  * @param {number} userId
  * @returns {Promise<{ message: string }>}

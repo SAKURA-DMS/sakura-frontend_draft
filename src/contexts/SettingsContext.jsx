@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useApp } from "@/contexts/AppContext.jsx";
+import { updateNotificationEmailPref } from "@/services/userService";
 
 const DEFAULT_SETTINGS = {
   theme: "light",
-  notifications: { inApp: true, upload: true, approve: true, reject: true, folderShare: true, frequency: "realtime" },
+  notifications: { email: true, inApp: true, upload: true, approve: true, reject: true, folderShare: true, frequency: "realtime" },
   scan: { compression: "medium", autoSaveFolder: "" },
   security: { twoFactor: false, sessionTimeout: "1h" },
 };
@@ -58,8 +59,34 @@ export const SettingsProvider = ({ children }) => {
     } catch { setSettings(DEFAULT_SETTINGS); }
   }, [storageKey]);
 
+  // Toggle "Email" disimpan di backend (kolom users.notif_email_enabled) karena
+  // backend butuh tahu preferensi ini saat mengirim notifikasi dari server.
+  // Backend adalah source of truth untuk toggle ini (berbeda dari toggle lain
+  // yang tetap localStorage-only seperti sebelumnya).
+  useEffect(() => {
+    if (typeof currentUser?.notifEmailEnabled === "boolean") {
+      setSettings((prev) => ({
+        ...prev,
+        notifications: { ...prev.notifications, email: currentUser.notifEmailEnabled },
+      }));
+    }
+  }, [currentUser?.notifEmailEnabled]);
+
   const updateSettings = useCallback((partial) => { setSettings((prev) => ({ ...prev, ...partial })); }, []);
   const updateNotifications = useCallback((partial) => { setSettings((prev) => ({ ...prev, notifications: { ...prev.notifications, ...partial } })); }, []);
+
+  // Update khusus toggle "Email": update UI langsung + sinkronkan ke backend.
+  const updateEmailNotification = useCallback(async (value) => {
+    setSettings((prev) => ({ ...prev, notifications: { ...prev.notifications, email: value } }));
+    if (!currentUser?.id) return;
+    try {
+      await updateNotificationEmailPref(currentUser.id, value);
+    } catch (err) {
+      // Rollback UI kalau gagal disimpan ke server
+      setSettings((prev) => ({ ...prev, notifications: { ...prev.notifications, email: !value } }));
+      console.error("Gagal menyimpan preferensi notifikasi email:", err);
+    }
+  }, [currentUser?.id]);
   const updateScan = useCallback((partial) => { setSettings((prev) => ({ ...prev, scan: { ...prev.scan, ...partial } })); }, []);
   const updateSecurity = useCallback((partial) => { setSettings((prev) => ({ ...prev, security: { ...prev.security, ...partial } })); }, []);
   const resetToDefault = useCallback(() => { setSettings(DEFAULT_SETTINGS); }, []);
@@ -75,7 +102,7 @@ export const SettingsProvider = ({ children }) => {
   }, [settings, currentUser?.id]);
 
   return (
-    <SettingsContext.Provider value={{ settings, updateSettings, updateNotifications, updateScan, updateSecurity, resetToDefault, exportPreferences }}>
+    <SettingsContext.Provider value={{ settings, updateSettings, updateNotifications, updateEmailNotification, updateScan, updateSecurity, resetToDefault, exportPreferences }}>
       {children}
     </SettingsContext.Provider>
   );
