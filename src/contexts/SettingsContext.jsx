@@ -59,10 +59,6 @@ export const SettingsProvider = ({ children }) => {
     } catch { setSettings(DEFAULT_SETTINGS); }
   }, [storageKey]);
 
-  // Toggle "Email" disimpan di backend (kolom users.notif_email_enabled) karena
-  // backend butuh tahu preferensi ini saat mengirim notifikasi dari server.
-  // Backend adalah source of truth untuk toggle ini (berbeda dari toggle lain
-  // yang tetap localStorage-only seperti sebelumnya).
   useEffect(() => {
     if (typeof currentUser?.notifEmailEnabled === "boolean") {
       setSettings((prev) => ({
@@ -75,14 +71,12 @@ export const SettingsProvider = ({ children }) => {
   const updateSettings = useCallback((partial) => { setSettings((prev) => ({ ...prev, ...partial })); }, []);
   const updateNotifications = useCallback((partial) => { setSettings((prev) => ({ ...prev, notifications: { ...prev.notifications, ...partial } })); }, []);
 
-  // Update khusus toggle "Email": update UI langsung + sinkronkan ke backend.
   const updateEmailNotification = useCallback(async (value) => {
     setSettings((prev) => ({ ...prev, notifications: { ...prev.notifications, email: value } }));
     if (!currentUser?.id) return;
     try {
       await updateNotificationEmailPref(currentUser.id, value);
     } catch (err) {
-      // Rollback UI kalau gagal disimpan ke server
       setSettings((prev) => ({ ...prev, notifications: { ...prev.notifications, email: !value } }));
       console.error("Gagal menyimpan preferensi notifikasi email:", err);
     }
